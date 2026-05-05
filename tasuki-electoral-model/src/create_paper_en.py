@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Generate English Electoral Studies paper as .docx with embedded color figures."""
+"""Generate English paper as .docx with numbered citations [1] for SSR/JCSS."""
 
+import re
 from docx import Document
 from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -9,7 +10,7 @@ from docx.oxml.ns import qn
 import os
 
 FIGS = os.path.join(os.path.dirname(__file__), '..', 'output', 'figures')
-OUT = os.path.join(os.path.dirname(__file__), '..', 'output', 'docx', 'TATSUKI_Electoral_Studies_English.docx')
+OUT = os.path.join(os.path.dirname(__file__), '..', 'output', 'docx', 'TATSUKI_Paper_English.docx')
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
 doc = Document()
@@ -34,22 +35,140 @@ for level in range(1, 4):
     else:
         hs.font.size = Pt(11)
 
+# ── Reference numbering system ──────────────
+# References in order of first appearance in body text.
+REFS_ORDERED = [
+    # [1]
+    'Manin, B., Przeworski, A., & Stokes, S. C. (1999). Elections and Representation. '
+    'In Democracy, Accountability, and Representation. Cambridge University Press.',
+    # [2]
+    'Fiorina, M. P. (1981). Retrospective Voting in American National Elections. Yale University Press.',
+    # [3]
+    'Key, V. O. (1966). The Responsible Electorate. Harvard University Press.',
+    # [4]
+    'Healy, A., & Malhotra, N. (2013). Retrospective Voting Reconsidered. '
+    'Annual Review of Political Science, 16, 285\u2013306.',
+    # [5]
+    'Lalley, S., & Weyl, E. G. (2018). Quadratic Voting: How Mechanism Design Can Radicalize Democracy. '
+    'AEA Papers and Proceedings, 1(1).',
+    # [6]
+    'Posner, E. A., & Weyl, E. G. (2018). Radical Markets: Uprooting Capitalism and Democracy for a '
+    'Just Society. Princeton University Press.',
+    # [7]
+    'Brill, M., Delemazure, T., George, A.-M., Lackner, M., & Schmidt-Kraepelin, U. (2022). '
+    'Liquid Democracy with Ranked Delegations. In Proceedings of the AAAI Conference on Artificial Intelligence.',
+    # [8]
+    'Kahng, A., Mackenzie, S., & Procaccia, A. D. (2021). Liquid Democracy: An Algorithmic Perspective. '
+    'Journal of Artificial Intelligence Research, 70, 1223\u20131252.',
+    # [9]
+    'Hanson, R. (2013). Shall We Vote on Values, But Bet on Beliefs? '
+    'Journal of Political Philosophy, 21(2), 151\u2013173.',
+    # [10]
+    'Thomson, R., Royed, T., Naurin, E., et al. (2017). The Fulfillment of Parties\' Election Pledges: '
+    'A Comparative Study. American Journal of Political Science, 61(3), 527\u2013542.',
+    # [11]
+    'P\u00e9try, F., & Collette, B. (2009). Measuring How Political Parties Keep Their Promises. '
+    'In Do They Walk Like They Talk? Springer.',
+    # [12]
+    'Grimm, V., Railsback, S. F., Vincenot, C. E., et al. (2020). The ODD Protocol for Describing '
+    'Agent-Based and Other Simulation Models: A Second Update. '
+    'Journal of Artificial Societies and Social Simulation, 23(2), 7.',
+    # [13]
+    'Birch, L., & P\u00e9try, F. (2019). Assessing Justin Trudeau\u2019s Liberal Government: '
+    '353 Promises and a Mandate for Change. Les Presses de l\u2019Universit\u00e9 Laval.',
+    # [14]
+    'Barro, R. (1973). The control of politicians: an economic model. Public Choice, 14, 19\u201342.',
+    # [15]
+    'Ferejohn, J. (1986). Incumbent Performance and Electoral Control. Public Choice, 50, 5\u201325.',
+    # [16]
+    'Besley, T. (2006). Principled Agents? The Political Economy of Good Government. '
+    'Oxford University Press.',
+    # [17]
+    'Arrow, K. (1951). Social Choice and Individual Values. Yale University Press.',
+    # [18]
+    'Gibbard, A. (1973). Manipulation of voting schemes. Econometrica, 41, 587\u2013601.',
+    # [19]
+    'Satterthwaite, M. (1975). Strategy-proofness and Arrow\'s conditions. '
+    'Journal of Economic Theory, 10, 187\u2013217.',
+    # [20]
+    'Dasgupta, P., & Maskin, E. (2020). Strategy-Proofness, Independence of Irrelevant Alternatives, '
+    'and Majority Rule. AER: Insights, 2(4), 459\u2013474.',
+    # [21]
+    'Acemoglu, D., Golosov, M., & Tsyvinski, A. (2008). Political Economy of Mechanisms. '
+    'Econometrica, 76(3), 619\u2013641.',
+    # [22]
+    'Christoff, Z., & Grossi, D. (2017). Binary Voting with Delegable Proxy. '
+    'In Proceedings of TARK 2017.',
+    # [23]
+    'Naurin, E., Royed, T. J., & Thomson, R. (Eds.). (2020). Party Mandates and Democracy. '
+    'University of Michigan Press.',
+    # [24]
+    'Bytzek, E., Dupont, J. C., Steffens, M. C., Knab, N., & Schneider, F. M. (2024). '
+    'Do Election Pledges Matter? Politische Vierteljahresschrift, 66(4), 785\u2013804.',
+    # [25]
+    'Laver, M. (2011). Party Competition: An Agent-Based Model. Princeton University Press.',
+    # [26]
+    'Mitra, A. (2022). Agent-based Simulation of District-based Elections. arXiv:2205.14400.',
+    # [27]
+    'Tomlinson, K., Namjoshi, T., Ugander, J., & Kleinberg, J. (2024). Replicating Electoral Success. '
+    'arXiv:2402.17109.',
+    # [28]
+    'Baharad, R., Nitzan, S., & Segal-Halevi, E. (2022). One person, one weight: when is weighted '
+    'voting democratic? Social Choice and Welfare, 59, 467\u2013493.',
+    # [29]
+    'P\u00e9try, F., & Fortier-Chouinard, A. (2024). Polimeter: An Independent Pledge Tracking Initiative. '
+    'Centre for the Study of Democratic Citizenship, Universit\u00e9 Laval. https://polimeter.org',
+    # [30]
+    'Koster, R., et al. (2022). Human-centred mechanism design with Democratic AI. '
+    'Nature Human Behaviour, 6, 1398\u20131407.',
+]
+
+
 def add_para(text, bold=False, italic=False, align=None, size=None, space_after=None):
     p = doc.add_paragraph()
-    run = p.add_run(text)
-    run.bold = bold
-    run.italic = italic
-    if size:
-        run.font.size = Pt(size)
+    # Parse {N} or {N-M} markers for superscript references
+    parts = re.split(r'(\{[^}]+\})', text)
+    for part in parts:
+        if part.startswith('{') and part.endswith('}'):
+            run = p.add_run(part[1:-1])
+            run.font.superscript = True
+            if size:
+                run.font.size = Pt(size)
+            if bold:
+                run.bold = True
+            if italic:
+                run.italic = italic
+        else:
+            run = p.add_run(part)
+            run.bold = bold
+            run.italic = italic
+            if size:
+                run.font.size = Pt(size)
     if align:
         p.alignment = align
     if space_after is not None:
         p.paragraph_format.space_after = Pt(space_after)
     return p
 
+
+def add_text_para(text):
+    """Add paragraph with inline [N] citation references rendered as superscript."""
+    p = doc.add_paragraph()
+    parts = re.split(r'(\[[0-9, \u2013-]+\])', text)
+    for part in parts:
+        if re.match(r'^\[[0-9, \u2013-]+\]$', part):
+            run = p.add_run(part)
+            run.font.superscript = True
+            run.font.size = Pt(9)
+        else:
+            run = p.add_run(part)
+    return p
+
+
 def add_figure(path, caption, width=5.5):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(12)
     run = p.add_run()
     run.add_picture(path, width=Inches(width))
     cap = doc.add_paragraph()
@@ -57,7 +176,9 @@ def add_figure(path, caption, width=5.5):
     r = cap.add_run(caption)
     r.italic = True
     r.font.size = Pt(10)
+    cap.paragraph_format.space_before = Pt(6)
     cap.paragraph_format.space_after = Pt(12)
+
 
 # ══════════════════════════════════════════════
 # TITLE PAGE
@@ -65,7 +186,7 @@ def add_figure(path, caption, width=5.5):
 add_para('', space_after=24)
 add_para(
     'Trust-Adjusted Transparent Scoring with Unified Knowledge Integration (TATSUKI):\n'
-    'An Agent-Based Model of Accountability-Driven Electoral Reform\n'
+    'An Agent-Based Computational Model of Accountability-Driven Electoral Reform\n'
     'with Empirical Calibration',
     bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=18, space_after=12
 )
@@ -76,32 +197,28 @@ add_para('[Institutional Affiliation Redacted]',
 
 # ── Abstract ──
 doc.add_heading('Abstract', level=1)
-doc.add_paragraph(
-    'Democratic elections serve as the primary mechanism through which citizens hold representatives '
-    'accountable, yet the binary nature of electoral sanctions (re-election versus removal) provides '
-    'only a coarse instrument for incentivizing policy fulfillment. We propose Trust-Adjusted Transparent '
-    'Scoring with Unified Knowledge Integration (TATSUKI), a novel electoral mechanism in which candidates '
-    'pre-declare weighted policy pledges, third-party evaluators assess fulfillment at term end, '
-    'and the resulting accountability score modulates a candidate-level trust coefficient that '
-    'influences their effective electoral support in subsequent elections. Using an agent-based model '
-    'compliant with the ODD protocol, we simulate multi-generational electoral dynamics under TATSUKI '
-    'across a family of influence functions. We calibrate the model using empirical pledge fulfillment '
-    'data from the Polimeter project (1,050 promises across three Canadian federal parliamentary '
-    'terms) and cross-national data from Thomson et al. (2017). Our results show that TATSUKI '
-    '(i) significantly raises mean accountability scores relative to standard elections, '
-    '(ii) induces evolutionary selection pressure favoring sincere candidates over populist and '
-    'deceptive strategists, (iii) exhibits robustness to adversarial exploitation strategies '
-    'discovered via genetic algorithm search, and (iv) produces counterfactual trust trajectories '
-    'consistent with empirical fulfillment patterns when applied retrospectively to real-world data. '
-    'Sensitivity analysis reveals that concave and sigmoid influence functions offer the best '
-    'trade-off between incentive strength and resistance to manipulation. We discuss implications for '
-    'institutional design and the compatibility of TATSUKI with the one-person-one-vote principle '
-    'through candidate-centric trust reinterpretation.'
+add_text_para(
+    'Democratic elections provide citizens with periodic opportunities to hold representatives '
+    'accountable, yet the binary nature of electoral sanctions (re-election versus removal) offers '
+    'only a coarse instrument for incentivizing policy fulfillment. We propose Trust-Adjusted '
+    'Transparent Scoring with Unified Knowledge Integration (TATSUKI), a novel electoral mechanism '
+    'in which candidates pre-declare weighted policy pledges, third-party evaluators assess '
+    'fulfillment at term end, and the resulting accountability score modulates a candidate-level '
+    'trust coefficient influencing effective electoral support in subsequent elections. Using an '
+    'agent-based model (ABM) compliant with the ODD protocol, we simulate multi-generational '
+    'electoral dynamics under TATSUKI across a family of influence functions. The model is calibrated '
+    'using empirical pledge fulfillment data from the Polimeter project (1,050 promises across three '
+    'Canadian parliamentary terms) and cross-national data from Thomson et al. [10]. '
+    'Results show that TATSUKI (i) significantly raises mean accountability scores, '
+    '(ii) induces evolutionary selection pressure favoring sincere candidates, (iii) exhibits '
+    'robustness to adversarial exploitation strategies discovered via genetic algorithm search, '
+    'and (iv) produces counterfactual trust trajectories consistent with empirical fulfillment '
+    'patterns. Sensitivity analysis reveals that concave and sigmoid influence functions offer the '
+    'best trade-off between incentive strength and resistance to manipulation.'
 )
 
-add_para('Keywords: electoral accountability, agent-based model, mechanism design, '
-         'retrospective voting, weighted trust, policy fulfillment, empirical calibration, '
-         'pledge tracking',
+add_para('Keywords: electoral accountability, agent-based model, computational social science, '
+         'mechanism design, retrospective voting, pledge fulfillment',
          italic=True, size=10, space_after=18)
 
 # ══════════════════════════════════════════════
@@ -109,54 +226,54 @@ add_para('Keywords: electoral accountability, agent-based model, mechanism desig
 # ══════════════════════════════════════════════
 doc.add_heading('1. Introduction', level=1)
 
-doc.add_paragraph(
+add_text_para(
     'Elections constitute the cornerstone of representative democracy, providing citizens with '
-    'periodic opportunities to evaluate and sanction their representatives (Manin, Przeworski, & '
-    'Stokes, 1999). The retrospective voting literature has documented that voters do, in practice, '
-    'condition their electoral choices on perceived government performance (Fiorina, 1981; Key, 1966; '
-    'Healy & Malhotra, 2013). However, this accountability mechanism operates informally: voters must '
-    'independently assess complex policy outcomes, and the electoral sanction itself is binary\u2014'
-    're-election or removal\u2014regardless of the degree of policy fulfillment or failure.'
+    'periodic opportunities to evaluate and sanction their representatives [1]. The retrospective '
+    'voting literature has documented that voters do, in practice, condition their electoral choices '
+    'on perceived government performance [2\u20134]. However, this accountability mechanism operates '
+    'informally: voters must independently assess complex policy outcomes, and the electoral sanction '
+    'itself is binary\u2014re-election or removal\u2014regardless of the degree of policy fulfillment '
+    'or failure.'
 )
 
-doc.add_paragraph(
+add_text_para(
     'Several innovative proposals have sought to improve democratic decision-making by modifying '
     'the structure of elections. Quadratic Voting (QV) addresses the failure to capture preference '
-    'intensity by allowing voters to purchase additional votes at quadratic cost (Lalley & Weyl, 2018; '
-    'Posner & Weyl, 2018). Liquid democracy enables flexible delegation of voting rights (Brill et al., '
-    '2022; Kahng, Mackenzie, & Procaccia, 2021). Futarchy separates value judgments from empirical '
-    'beliefs by employing prediction markets for policy selection (Hanson, 2013). Each of these '
-    'approaches modifies a different dimension of the electoral process, yet none directly '
+    'intensity by allowing voters to purchase additional votes at quadratic cost [5, 6]. Liquid '
+    'democracy enables flexible delegation of voting rights [7, 8]. Futarchy separates value '
+    'judgments from empirical beliefs by employing prediction markets for policy selection [9]. Each '
+    'of these approaches modifies a different dimension of the electoral process, yet none directly '
     'institutionalizes the retrospective accountability relationship between campaign promises and '
     'post-election performance.'
 )
 
-doc.add_paragraph(
+add_text_para(
     'Meanwhile, the empirical literature on campaign pledge fulfillment has established that promise '
-    'keeping is both measurable and variable. Thomson et al. (2017), analyzing over 20,000 pledges '
+    'keeping is both measurable and variable. Thomson et al. [10], analyzing over 20,000 pledges '
     'across 12 countries, found that governing parties fulfill a majority of their promises, with '
-    'rates varying significantly based on institutional context. P\u00e9try and Collette (2009) report '
+    'rates varying significantly based on institutional context. P\u00e9try and Collette [11] report '
     'a cross-national average fulfillment rate of approximately 67%. These findings suggest that '
     'systematic evaluation of pledge fulfillment is feasible and could serve as the empirical '
     'foundation for an institutionalized accountability mechanism.'
 )
 
-doc.add_paragraph(
-    'In this paper, we propose Trust-Adjusted Transparent Scoring with Unified Knowledge Integration (TATSUKI), '
-    'an electoral mechanism that bridges the gap between informal retrospective voting and formal '
-    'institutional design. Under TATSUKI, candidates pre-declare a weighted portfolio of policy pledges '
-    'at election time, an independent evaluation body assesses fulfillment at the end of the term, '
-    'and the resulting accountability score is transformed via an influence function into a trust '
+add_text_para(
+    'In this paper, we propose Trust-Adjusted Transparent Scoring with Unified Knowledge Integration '
+    '(TATSUKI), an electoral mechanism that bridges the gap between informal retrospective voting and '
+    'formal institutional design. Under TATSUKI, candidates pre-declare a weighted portfolio of policy '
+    'pledges at election time, an independent evaluation body assesses fulfillment at the end of the '
+    'term, and the resulting accountability score is transformed via an influence function into a trust '
     'coefficient that modulates the candidate\'s effective electoral support in subsequent elections. '
     'Crucially, we frame this adjustment as a candidate-level trust coefficient rather than a '
     'modification of individual voter weights, thereby maintaining compatibility with the '
     'one-person-one-vote principle.'
 )
 
-doc.add_paragraph(
+add_text_para(
     'We formalize TATSUKI as a family of mechanisms parameterized by the choice of influence function '
-    '\u03c9(S), and employ agent-based modeling (ABM) to investigate the system\'s dynamic properties. '
-    'Following the ODD protocol (Grimm et al., 2020), we simulate multi-generational electoral '
+    '\u03c9(S), and employ agent-based modeling (ABM)\u2014a computational approach well-suited to '
+    'exploring emergent dynamics in complex social systems\u2014to investigate the system\'s dynamic '
+    'properties. Following the ODD protocol [12], we simulate multi-generational electoral '
     'competition among heterogeneous candidate types (sincere, populist, and strategic-deceptive) and '
     'examine equilibrium outcomes, evolutionary dynamics, and robustness to adversarial exploitation '
     'via genetic algorithm search. Our contributions are as follows:'
@@ -175,14 +292,14 @@ contributions = [
     'We provide a systematic comparison of TATSUKI with related electoral reform proposals, '
     'establishing its unique position in the theoretical landscape.',
     'We calibrate the model using empirical pledge fulfillment data from the Polimeter project '
-    '(Pétry & Birch, 2019) and the Comparative Party Pledges Database (Thomson et al., 2017), '
+    '[13] and the Comparative Party Pledges Database [10], '
     'and conduct counterfactual analysis demonstrating TATSUKI\'s predicted effects on real-world '
     'political actors.'
 ]
 for i, c in enumerate(contributions, 1):
-    doc.add_paragraph(f'{i}. {c}')
+    add_text_para(f'{i}. {c}')
 
-doc.add_paragraph(
+add_text_para(
     'The remainder of this paper is organized as follows. Section 2 reviews related work. '
     'Section 3 presents the formal model. Section 4 describes the agent-based simulation following '
     'the ODD protocol. Section 5 reports simulation results, including empirical calibration and '
@@ -196,75 +313,73 @@ doc.add_paragraph(
 doc.add_heading('2. Related Work', level=1)
 
 doc.add_heading('2.1 Retrospective Voting and Electoral Accountability', level=2)
-doc.add_paragraph(
-    'The retrospective voting tradition, initiated by Key (1966) and formalized by Fiorina (1981), '
+add_text_para(
+    'The retrospective voting tradition, initiated by Key [3] and formalized by Fiorina [2], '
     'posits that voters evaluate incumbents based on past performance rather than prospective policy '
-    'promises. Healy and Malhotra (2013) provide a comprehensive review, noting that voters are often '
+    'promises. Healy and Malhotra [4] provide a comprehensive review, noting that voters are often '
     'myopic, weighting recent events disproportionately, and susceptible to irrelevant factors. '
     'TATSUKI addresses these limitations by institutionalizing the retrospective evaluation process, '
     'replacing subjective voter assessments with structured third-party evaluation of pre-declared '
     'pledges.'
 )
-doc.add_paragraph(
-    'Formal models of electoral accountability, notably Barro (1973) and Ferejohn (1986), frame the '
+add_text_para(
+    'Formal models of electoral accountability, notably Barro [14] and Ferejohn [15], frame the '
     'voter-politician relationship as a principal-agent problem. In these models, voters employ '
     'threshold strategies: re-elect the incumbent if performance exceeds a reservation utility, '
-    'otherwise remove. Besley (2006) extends this framework to distinguish selection and disciplining '
+    'otherwise remove. Besley [16] extends this framework to distinguish selection and disciplining '
     'effects. TATSUKI generalizes the binary sanction of these models into a continuous trust '
     'coefficient \u03c4 = \u03c9(S), providing finer-grained incentives for policy fulfillment.'
 )
 
 doc.add_heading('2.2 Mechanism Design and Social Choice Theory', level=2)
-doc.add_paragraph(
-    'Arrow\'s impossibility theorem (Arrow, 1951) and the Gibbard-Satterthwaite theorem (Gibbard, '
-    '1973; Satterthwaite, 1975) establish fundamental limits on ranked-choice voting systems. '
-    'Dasgupta and Maskin (2020) provide recent results on strategy-proofness under majority rule. '
-    'TATSUKI does not modify the preference aggregation rule itself but introduces an additional '
-    'dimension\u2014dynamic trust weighting\u2014that operates upstream of the aggregation step. This '
-    'situates TATSUKI outside the direct scope of classical impossibility results, though it raises '
-    'new questions about strategic manipulation in the pledge-declaration and evaluation stages.'
+add_text_para(
+    'Arrow\'s impossibility theorem [17] and the Gibbard-Satterthwaite theorem [18, 19] establish '
+    'fundamental limits on ranked-choice voting systems. Dasgupta and Maskin [20] provide recent '
+    'results on strategy-proofness under majority rule. TATSUKI does not modify the preference '
+    'aggregation rule itself but introduces an additional dimension\u2014dynamic trust weighting\u2014'
+    'that operates upstream of the aggregation step. This situates TATSUKI outside the direct scope '
+    'of classical impossibility results, though it raises new questions about strategic manipulation '
+    'in the pledge-declaration and evaluation stages.'
 )
-doc.add_paragraph(
-    'Acemoglu, Golosov, and Tsyvinski (2008) study the political economy of mechanisms, analyzing '
+add_text_para(
+    'Acemoglu, Golosov, and Tsyvinski [21] study the political economy of mechanisms, analyzing '
     'dynamic incentive provision for politicians. Their framework informs our treatment of '
     'intertemporal incentives, though TATSUKI differs in making the incentive structure transparent '
     'and parameterized through the publicly known influence function \u03c9(S).'
 )
 
 doc.add_heading('2.3 Alternative Electoral Reforms', level=2)
-doc.add_paragraph(
-    'Quadratic Voting (Lalley & Weyl, 2018; Posner & Weyl, 2018) allows voters to express '
-    'preference intensity by purchasing votes at quadratic cost, achieving approximate welfare '
-    'optimality under certain conditions. While QV modifies the voting act itself, TATSUKI modifies '
-    'the consequences of past voting outcomes. The two mechanisms are formally complementary and '
-    'could, in principle, be combined.'
+add_text_para(
+    'Quadratic Voting [5, 6] allows voters to express preference intensity by purchasing votes at '
+    'quadratic cost, achieving approximate welfare optimality under certain conditions. While QV '
+    'modifies the voting act itself, TATSUKI modifies the consequences of past voting outcomes. The '
+    'two mechanisms are formally complementary and could, in principle, be combined.'
 )
-doc.add_paragraph(
-    'Liquid democracy (Brill et al., 2022; Christoff & Grossi, 2017; Kahng et al., 2021) enables '
-    'transitive delegation of voting rights, dissolving the boundary between direct and '
-    'representative democracy. In contrast, TATSUKI preserves the representative structure while '
-    'strengthening accountability within it. Futarchy (Hanson, 2013) delegates policy decisions to '
-    'prediction markets, separating values from beliefs. TATSUKI implements a different separation: '
-    'pre-election pledges from post-election evaluation.'
+add_text_para(
+    'Liquid democracy [7, 22, 8] enables transitive delegation of voting rights, dissolving the '
+    'boundary between direct and representative democracy. In contrast, TATSUKI preserves the '
+    'representative structure while strengthening accountability within it. Futarchy [9] delegates '
+    'policy decisions to prediction markets, separating values from beliefs. TATSUKI implements a '
+    'different separation: pre-election pledges from post-election evaluation.'
 )
 
 doc.add_heading('2.4 Campaign Pledge Fulfillment', level=2)
-doc.add_paragraph(
-    'Thomson et al. (2017) conduct the most comprehensive comparative study of pledge fulfillment, '
+add_text_para(
+    'Thomson et al. [10] conduct the most comprehensive comparative study of pledge fulfillment, '
     'analyzing over 20,000 pledges across 57 election campaigns in 12 countries. They find that '
     'governing parties fulfill a majority of pledges, with single-party governments achieving higher '
-    'rates than coalitions. Naurin, Royed, and Thomson (2020) further document cross-national '
-    'variation. Bytzek et al. (2024) demonstrate that pledge fulfillment perceptions significantly '
+    'rates than coalitions. Naurin, Royed, and Thomson [23] further document cross-national '
+    'variation. Bytzek et al. [24] demonstrate that pledge fulfillment perceptions significantly '
     'affect political trust. These findings provide the empirical foundation for TATSUKI\'s core '
     'assumption that pledge fulfillment can be systematically measured and used as an institutional '
     'input.'
 )
 
 doc.add_heading('2.5 Agent-Based Models of Electoral Systems', level=2)
-doc.add_paragraph(
-    'ABMs have been widely applied to electoral dynamics. Laver (2011) models party competition '
-    'with strategic agents adapting to voter distributions. Mitra (2022) simulates district-based '
-    'elections incorporating social and geographic influences. Tomlinson et al. (2024) employ '
+add_text_para(
+    'ABMs have been widely applied to electoral dynamics. Laver [25] models party competition '
+    'with strategic agents adapting to voter distributions. Mitra [26] simulates district-based '
+    'elections incorporating social and geographic influences. Tomlinson et al. [27] employ '
     'replicator dynamics to study candidate positioning, finding that complex evolutionary dynamics '
     'emerge even from simple behavioral heuristics. Our ABM builds on this tradition by introducing '
     'the TATSUKI mechanism as the institutional context within which candidate strategies evolve.'
@@ -283,7 +398,7 @@ add_figure(f'{FIGS}/fig6_positioning.png',
 doc.add_heading('3. The TATSUKI Model', level=1)
 
 doc.add_heading('3.1 Model Overview', level=2)
-doc.add_paragraph(
+add_text_para(
     'We consider a sequence of elections indexed by t = 1, 2, 3, \u2026, each followed by a fixed '
     'term of office. At each election, a set of candidates C\u209c = {c\u2081, c\u2082, \u2026, c\u2098} '
     'compete for office, and a set of voters V = {v\u2081, v\u2082, \u2026, v\u2099} cast ballots. '
@@ -299,7 +414,7 @@ add_figure(f'{FIGS}/fig1_conceptual_overview.png',
            width=5.5)
 
 doc.add_heading('3.2 Pledge Declaration', level=2)
-doc.add_paragraph(
+add_text_para(
     'At the start of each electoral cycle t, each candidate c \u2208 C\u209c declares a pledge '
     'portfolio P_c = {(p\u2081, w\u2081), (p\u2082, w\u2082), \u2026, (p\u2096, w\u2096)}, where '
     'p\u2c7c is a specific policy commitment and w\u2c7c \u2208 (0, 1] is its declared importance '
@@ -310,7 +425,7 @@ doc.add_paragraph(
 )
 
 doc.add_heading('3.3 Fulfillment Evaluation', level=2)
-doc.add_paragraph(
+add_text_para(
     'At the end of each term, an independent evaluation body assesses the fulfillment degree '
     'f\u2c7c \u2208 [0, 1] for each pledge p\u2c7c. The evaluation combines three components in a '
     'weighted mixture: (O) objective indicators derived from publicly available data, (P) public '
@@ -319,7 +434,7 @@ doc.add_paragraph(
 )
 add_para('f\u2c7c = \u03b1\u2080 \u00b7 O\u2c7c + \u03b1\u2081 \u00b7 P\u2c7c + \u03b1\u2082 \u00b7 E\u2c7c',
          align=WD_ALIGN_PARAGRAPH.CENTER, italic=True)
-doc.add_paragraph(
+add_text_para(
     'where \u03b1\u2080 + \u03b1\u2081 + \u03b1\u2082 = 1 are the evaluation weights. This multi-source '
     'approach mitigates the risk of gaming any single evaluation channel (a concern related to '
     'Goodhart\'s Law). During the term, interim evaluations are conducted using exponential smoothing '
@@ -327,20 +442,20 @@ doc.add_paragraph(
 )
 
 doc.add_heading('3.4 Accountability Score', level=2)
-doc.add_paragraph(
+add_text_para(
     'The accountability score for candidate c at the end of term t is computed as the weighted sum '
     'of fulfillment scores:'
 )
 add_para('S_c^(t) = \u03a3\u2c7c  w\u2c7c \u00b7 f\u2c7c \u2208 [0, 1]',
          align=WD_ALIGN_PARAGRAPH.CENTER, italic=True)
-doc.add_paragraph(
+add_text_para(
     'The score S_c^(t) represents the degree to which candidate c delivered on their declared '
     'priorities. A score of 1 indicates complete fulfillment of all pledges weighted by their declared '
     'importance; 0 indicates total failure.'
 )
 
 doc.add_heading('3.5 Trust Coefficient and Influence Function', level=2)
-doc.add_paragraph(
+add_text_para(
     'The accountability score is transformed into a trust coefficient via the influence function '
     '\u03c9: [0, 1] \u2192 [\u03c4_min, \u03c4_max], yielding \u03c4_c^(t+1) = \u03c9(S_c^(t)). '
     'We analyze a family of influence functions:'
@@ -360,7 +475,7 @@ for label, eq in funcs:
     r2 = p.add_run(eq)
     r2.italic = True
 
-doc.add_paragraph(
+add_text_para(
     'The trust coefficient determines a candidate\'s effective electoral support. In the subsequent '
     'election, if candidate c receives n_c raw votes, their effective vote count is V_eff(c) = '
     '\u03c4_c \u00b7 n_c. Crucially, the trust coefficient attaches to the candidate, not to '
@@ -377,7 +492,7 @@ add_figure(f'{FIGS}/fig2_influence_functions.png',
            width=5.5)
 
 doc.add_heading('3.6 Treatment of Losing Candidates', level=2)
-doc.add_paragraph(
+add_text_para(
     'A non-trivial design choice concerns candidates who stand for election but lose. Since losing '
     'candidates do not assume office, no pledge fulfillment can be observed. We adopt a neutral reset '
     'rule: losing candidates carry no trust modification into future elections (\u03c4 = 1.0). This '
@@ -387,7 +502,7 @@ doc.add_paragraph(
 )
 
 doc.add_heading('3.7 External Shock Adjustment', level=2)
-doc.add_paragraph(
+add_text_para(
     'To address the concern that exogenous events (natural disasters, global economic shocks, '
     'pandemics) may affect pledge fulfillability independently of candidate effort, TATSUKI '
     'incorporates an optional shock adjustment coefficient \u03b4 \u2208 [0, 1] that scales the '
@@ -402,7 +517,7 @@ doc.add_paragraph(
 doc.add_heading('4. Agent-Based Model Description (ODD Protocol)', level=1)
 
 doc.add_heading('4.1 Purpose and Patterns', level=2)
-doc.add_paragraph(
+add_text_para(
     'The purpose of the model is to investigate the dynamic properties of TATSUKI across multiple '
     'electoral cycles, with particular attention to: (i) whether TATSUKI raises equilibrium '
     'accountability levels relative to standard elections; (ii) which candidate types (sincere, '
@@ -414,28 +529,28 @@ doc.add_paragraph(
 )
 
 doc.add_heading('4.2 Entities, State Variables, and Scales', level=2)
-doc.add_paragraph(
+add_text_para(
     'The model contains two entity types:'
 )
-doc.add_paragraph(
+add_text_para(
     'Voters (n = 500 in baseline): Each voter v_i is characterized by a policy preference vector '
     '\u03b8_i \u2208 \u211d\u00b3 (representing positions on three policy dimensions), a noise parameter '
     '\u03c3_i governing decision stochasticity, and a memory parameter \u03bc_i representing the weight '
     'placed on retrospective evaluation when choosing candidates.'
 )
-doc.add_paragraph(
+add_text_para(
     'Candidates (m = 5 in baseline): Each candidate c_j is characterized by a true policy position '
     '\u03c0_j \u2208 \u211d\u00b3, a candidate type T_j \u2208 {sincere, populist, strategic}, a pledge '
     'portfolio P_j, a trust coefficient \u03c4_j, and a cumulative accountability history H_j.'
 )
-doc.add_paragraph(
+add_text_para(
     'The temporal scale consists of discrete electoral cycles (t = 1, \u2026, T_max), each representing '
     'one term of office. The spatial dimension is abstract; voters and candidates interact through '
     'policy space rather than geographic space.'
 )
 
 doc.add_heading('4.3 Process Overview and Scheduling', level=2)
-doc.add_paragraph(
+add_text_para(
     'Each electoral cycle proceeds through six phases in fixed order: '
     '(1) Pledge Declaration\u2014candidates declare weighted pledge portfolios based on their type-specific '
     'strategies; '
@@ -448,45 +563,45 @@ doc.add_paragraph(
     '(6) Trust Update\u2014the accountability score S is computed and transformed into the trust coefficient '
     '\u03c4 via the influence function \u03c9(S).'
 )
-doc.add_paragraph(
+add_text_para(
     'At the end of each generation (every G cycles, G = 5 in baseline), the candidate population '
     'undergoes evolutionary replacement: the lowest-performing candidates are replaced by mutated '
     'copies of successful candidates, simulating entry and exit dynamics in political competition.'
 )
 
 doc.add_heading('4.4 Design Concepts', level=2)
-doc.add_paragraph(
-    'Basic principles: The model integrates retrospective voting theory (Fiorina, 1981), '
-    'principal-agent accountability models (Barro, 1973; Ferejohn, 1986), and evolutionary game '
+add_text_para(
+    'Basic principles: The model integrates retrospective voting theory [2], '
+    'principal-agent accountability models [14, 15], and evolutionary game '
     'theory. The central design principle is that institutionalizing the retrospective evaluation '
     'loop creates selection pressure favoring candidates who fulfill their pledges.'
 )
-doc.add_paragraph(
+add_text_para(
     'Emergence: Key emergent outcomes include the equilibrium distribution of candidate types, '
     'the steady-state accountability level, and the degree of strategic adaptation.'
 )
-doc.add_paragraph(
+add_text_para(
     'Adaptation: Candidates adapt their pledge strategies based on type-specific heuristics. '
     'Sincere candidates declare pledges matching their true policy intentions. Populist candidates '
     'declare maximally appealing pledges regardless of fulfillment capacity. Strategic-deceptive '
     'candidates optimize their pledge declarations based on the expected trust coefficient dynamics.'
 )
-doc.add_paragraph(
+add_text_para(
     'Fitness: Candidate fitness is measured by electoral success (winning elections) weighted by '
     'sustainability (maintaining high trust coefficients over multiple cycles).'
 )
-doc.add_paragraph(
+add_text_para(
     'Stochasticity: Random elements include voter decision noise, pledge fulfillment noise '
     '(representing uncontrollable factors), mutation in candidate strategies during evolutionary '
     'replacement, and initial conditions.'
 )
-doc.add_paragraph(
+add_text_para(
     'Observation: We record mean accountability scores, candidate type distributions, trust '
     'coefficient distributions, voter welfare, and adversarial exploit fitness across cycles.'
 )
 
 doc.add_heading('4.5 Initialization', level=2)
-doc.add_paragraph(
+add_text_para(
     'Voter preferences are drawn from a multivariate normal distribution centered at the origin with '
     'covariance \u03a3 = I\u2083. Initial candidate positions are uniformly distributed in [\u22121, 1]\u00b3. '
     'The initial candidate type distribution is uniform across the three types (1/3 each). All trust '
@@ -495,12 +610,12 @@ doc.add_paragraph(
 )
 
 doc.add_heading('4.6 Input Data', level=2)
-doc.add_paragraph(
+add_text_para(
     'The baseline model generates dynamics endogenously. However, we supplement the analysis with '
-    'empirical calibration using two external data sources: (1) the Polimeter project '
+    'empirical calibration using two external data sources: (1) the Polimeter project [29] '
     '(polimeter.org), which tracks pledge fulfillment for Canadian federal governments across three '
     'parliamentary terms (1,050 coded promises for Prime Minister Justin Trudeau, 2015\u20132025), and '
-    '(2) the Comparative Party Pledges Database compiled by Thomson et al. (2017), providing '
+    '(2) the Comparative Party Pledges Database compiled by Thomson et al. [10], providing '
     'cross-national pledge fulfillment rates for over 20,000 pledges across 57 elections in 12 '
     'countries. These data are used to recalibrate the Beta distribution parameters governing '
     'candidate fulfillment behavior (Section 5.5) and to conduct counterfactual analysis of '
@@ -508,19 +623,19 @@ doc.add_paragraph(
 )
 
 doc.add_heading('4.7 Submodels', level=2)
-doc.add_paragraph(
+add_text_para(
     'Voter choice model: Voter v_i selects the candidate maximizing a utility function '
     'U_i(c) = \u2212\u2016\u03b8_i \u2212 \u03c0_c\u2016\u00b2 + \u03bc_i \u00b7 \u03c4_c + \u03b5_i, '
     'where the first term captures policy proximity, the second captures retrospective trust, and '
     '\u03b5_i ~ N(0, \u03c3_i\u00b2) represents decision noise.'
 )
-doc.add_paragraph(
+add_text_para(
     'Pledge fulfillment model: Given elected candidate c with type T_c, the fulfillment score for '
     'pledge j is f_j = min(1, max(0, f*_j + \u03b7_j)), where f*_j depends on candidate type '
     '(sincere: f*_j ~ Beta(8, 2); populist: f*_j ~ Beta(2, 5); strategic: f*_j ~ Beta(5, 3)) '
     'and \u03b7_j ~ N(0, 0.05) represents external noise.'
 )
-doc.add_paragraph(
+add_text_para(
     'Evolutionary replacement: Every G cycles, the candidate with the lowest cumulative fitness is '
     'replaced by a mutated copy of the candidate with the highest fitness. Mutation perturbs the '
     'type (with probability p_mutation = 0.1), policy position (Gaussian noise, \u03c3_mut = 0.1), '
@@ -533,7 +648,7 @@ doc.add_paragraph(
 doc.add_heading('5. Simulation Experiments and Results', level=1)
 
 doc.add_heading('5.1 Experimental Design', level=2)
-doc.add_paragraph(
+add_text_para(
     'We conduct four sets of experiments: (1) Baseline comparison of TATSUKI against standard '
     'elections over 30 electoral cycles; (2) Sensitivity analysis varying \u03c4_min, \u03c4_max, '
     'and the influence function type; (3) Adversarial robustness testing using genetic algorithm '
@@ -552,20 +667,20 @@ add_figure(f'{FIGS}/fig3_simulation_results.png',
            'periods. (d) Mean voter welfare comparison across TATSUKI, standard elections, and a QV baseline.',
            width=5.5)
 
-doc.add_paragraph(
+add_text_para(
     'Figure 4 presents the baseline results using the concave influence function (\u03c9(S) = '
     '\u03c4_min + (\u03c4_max \u2212 \u03c4_min)\u00b7\u221aS, with \u03c4_min = 0.5, \u03c4_max = 1.5). '
     'Panel (a) shows that the mean accountability score under TATSUKI rises from approximately 0.45 '
     'in cycle 1 to a steady state near 0.78 by cycle 20, representing a 73% improvement. In contrast, '
     'standard elections maintain a fluctuating mean near 0.45 throughout.'
 )
-doc.add_paragraph(
+add_text_para(
     'Panel (b) reveals the evolutionary mechanism underlying this improvement. The proportion of '
     'sincere candidates increases from 33% to approximately 70% over 30 cycles, while populist and '
     'strategic-deceptive candidates decline. This demonstrates that TATSUKI creates selection pressure '
     'favoring candidates who can sustain high trust coefficients through genuine pledge fulfillment.'
 )
-doc.add_paragraph(
+add_text_para(
     'Panel (c) shows that the trust coefficient distribution shifts rightward over time, '
     'reflecting the increasing prevalence of high-performing candidates. Panel (d) compares voter '
     'welfare across systems, showing that TATSUKI achieves the highest welfare gains, followed by '
@@ -582,7 +697,7 @@ add_figure(f'{FIGS}/fig5_sensitivity.png',
            'accountability as functions of the number of candidates.',
            width=5.5)
 
-doc.add_paragraph(
+add_text_para(
     'Figure 5(a) presents a heatmap of equilibrium accountability scores across the (\u03c4_min, '
     '\u03c4_max) parameter space. Higher accountability equilibria are achieved when the parameter '
     'range is wide (low \u03c4_min, high \u03c4_max), providing strong incentive gradients. The '
@@ -590,7 +705,7 @@ doc.add_paragraph(
     'reward-only configuration (\u03c4_min = 1.0) is notably less effective, suggesting that the '
     'threat of reduced trust is a more potent motivator than the promise of enhanced trust.'
 )
-doc.add_paragraph(
+add_text_para(
     'Figure 5(b) examines scalability. As the number of candidates increases, convergence slows '
     'but the qualitative advantage of TATSUKI persists. TATSUKI consistently achieves higher '
     'equilibrium accountability than standard elections across all tested candidate pool sizes.'
@@ -605,21 +720,21 @@ add_figure(f'{FIGS}/fig4_adversarial.png',
            'of genetic algorithm search for best exploitation strategies, by influence function type.',
            width=5.5)
 
-doc.add_paragraph(
+add_text_para(
     'We employ a genetic algorithm to discover exploitation strategies against each influence '
     'function variant. The GA population consists of 100 candidate strategy genomes encoding pledge '
     'weighting tactics, fulfillment gaming approaches, and coalition formation rules. Figure 6(a) '
     'reports the exploitability index (higher = more vulnerable) for each combination of strategy '
     'type and influence function.'
 )
-doc.add_paragraph(
+add_text_para(
     'The sigmoid function exhibits the lowest overall exploitability (mean = 0.16), followed by '
     'the concave function (0.16). The step function is most vulnerable (0.21), particularly to '
     'over-promising strategies, because its all-or-nothing threshold creates strong incentives for '
     'strategic manipulation near the threshold. The convex function is moderately vulnerable across '
     'all strategy types (mean = 0.28).'
 )
-doc.add_paragraph(
+add_text_para(
     'Figure 6(b) shows that adversarial search converges within approximately 100\u2013150 GA '
     'generations, indicating that exploitation strategies, where they exist, are discoverable. '
     'The sigmoid and concave functions have the lowest converged exploit fitness, confirming their '
@@ -631,38 +746,38 @@ doc.add_paragraph(
 # ──────────────────────────────────────────────
 doc.add_heading('5.5 Empirical Calibration and Counterfactual Analysis', level=2)
 
-doc.add_paragraph(
+add_text_para(
     'To ground the model in empirical reality, we calibrate the fulfillment distribution parameters '
-    'using two complementary data sources: the Polimeter project (polimeter.org) and the Comparative '
-    'Party Pledges Database (Thomson et al., 2017).'
+    'using two complementary data sources: the Polimeter project [29] and the Comparative '
+    'Party Pledges Database [10].'
 )
 
 doc.add_heading('5.5.1 Data Sources', level=3)
-doc.add_paragraph(
-    'The Polimeter project, developed by political scientists at Université Laval, systematically '
+add_text_para(
+    'The Polimeter project, developed by political scientists at Universit\u00e9 Laval, systematically '
     'tracks pledge fulfillment for Canadian federal governments using the methodology of the '
-    'Comparative Party Pledge Group (Naurin, Royed, & Thomson, 2020). For Prime Minister Justin '
+    'Comparative Party Pledge Group [23]. For Prime Minister Justin '
     'Trudeau, the project coded 1,050 promises across three parliamentary terms: the 42nd Parliament '
     '(2015\u20132019; N=353), 43rd Parliament (2019\u20132021; N=345), and 44th Parliament '
     '(2021\u20132025; N=352). Each promise is classified as Kept, Partially Kept, or Broken. '
     'We convert these to continuous fulfillment scores: Kept=1.0, Partially Kept=0.5, Broken=0.0.'
 )
-doc.add_paragraph(
-    'Thomson et al. (2017) provide aggregate fulfillment rates from over 20,000 pledges across 57 '
+add_text_para(
+    'Thomson et al. [10] provide aggregate fulfillment rates from over 20,000 pledges across 57 '
     'election campaigns in 12 countries. They report mean fulfillment rates of 72% for single-party '
     'majority governments, 58% for coalition majorities, and 61% for minority governments. The '
     'cross-national average is approximately 67%.'
 )
 
 doc.add_heading('5.5.2 Parameter Recalibration', level=3)
-doc.add_paragraph(
+add_text_para(
     'The Polimeter data yield a mean fulfillment score of 0.596 across all three terms, closely '
     'matching Thomson et al.\'s minority government average of 0.61 (gap = \u22120.014). This '
     'convergence validates the external consistency of the Polimeter coding methodology and confirms '
     'that the Trudeau governments, operating as minority or slim-majority administrations, exhibit '
     'fulfillment patterns consistent with cross-national norms for this government type.'
 )
-doc.add_paragraph(
+add_text_para(
     'Using these empirical benchmarks, we recalibrate the Beta distribution parameters for each '
     'candidate type. The original parameters (sincere: Beta(8,2), mean=0.80; populist: Beta(2,5), '
     'mean=0.29; strategic: Beta(5,3), mean=0.63) are adjusted to match empirical means: sincere '
@@ -675,7 +790,7 @@ doc.add_paragraph(
 # Figure 7: Empirical calibration
 add_figure(f'{FIGS}/fig7_empirical_calibration.png',
            'Figure 7. Empirical calibration and counterfactual analysis. (a) Distribution of pledge '
-           'fulfillment scores from the Polimeter project (N=1,050) with Thomson et al. (2017) '
+           'fulfillment scores from the Polimeter project (N=1,050) with Thomson et al. [10] '
            'reference benchmarks. (b) Cross-national comparison of mean pledge fulfillment rates. '
            '(c) Counterfactual trust coefficient trajectory under TATSUKI applied to Trudeau\'s three '
            'parliamentary terms. (d) Comparison of original and empirically calibrated Beta '
@@ -683,14 +798,14 @@ add_figure(f'{FIGS}/fig7_empirical_calibration.png',
            width=5.5)
 
 doc.add_heading('5.5.3 Counterfactual Analysis', level=3)
-doc.add_paragraph(
+add_text_para(
     'We apply TATSUKI retrospectively to the Polimeter data, computing what Trudeau\'s trust '
     'coefficient trajectory would have been under each influence function variant. With equal pledge '
     'weights assumed (reflecting the Polimeter\'s binary coding without weight information), the '
     'accountability scores are S\u2081 = 0.603 (42nd Parliament), S\u2082 = 0.584 (43rd Parliament), '
     'and S\u2083 = 0.601 (44th Parliament).'
 )
-doc.add_paragraph(
+add_text_para(
     'Under the concave influence function (\u03c4_min=0.5, \u03c4_max=1.5), the trust coefficient '
     'evolves as \u03c4: 1.000 \u2192 1.277 \u2192 1.264 \u2192 1.275 across the three terms '
     '(Figure 7c). The slight dip in the 43rd Parliament reflects marginally lower fulfillment '
@@ -699,7 +814,7 @@ doc.add_paragraph(
     'while the sigmoid function produces intermediate trajectories (\u03c4: 1.000 \u2192 1.238 '
     '\u2192 1.199 \u2192 1.233).'
 )
-doc.add_paragraph(
+add_text_para(
     'Three substantive findings emerge from the counterfactual analysis. First, a government with '
     'moderate fulfillment (\u224860%) would receive a positive trust bonus under all influence '
     'functions, suggesting that TATSUKI rewards effort rather than perfection. Second, the '
@@ -715,20 +830,20 @@ doc.add_paragraph(
 doc.add_heading('6. Discussion', level=1)
 
 doc.add_heading('6.1 Contributions and Implications', level=2)
-doc.add_paragraph(
+add_text_para(
     'Our results demonstrate that TATSUKI can significantly improve electoral accountability '
     'compared to standard elections. The mechanism works through two channels: a direct incentive '
     'effect (candidates adjust behavior to maintain high trust coefficients) and an evolutionary '
     'selection effect (the political system selects for candidates with genuine fulfillment capacity). '
     'The combination of these channels produces sustained accountability improvements over time.'
 )
-doc.add_paragraph(
+add_text_para(
     'The analysis of the influence function family reveals a principled basis for institutional '
     'design. Concave and sigmoid functions offer the best balance: they provide strong incentives '
     'for moderate performers to improve (steep gradient at low S) while limiting the marginal gain '
     'from gaming near the top, thus discouraging costly but marginally rewarding manipulation.'
 )
-doc.add_paragraph(
+add_text_para(
     'The candidate-centric trust coefficient formulation addresses a major normative concern. By '
     'attaching the trust adjustment to candidates rather than voters, TATSUKI preserves the formal '
     'equality of each voter\'s ballot. The trust coefficient can be interpreted as a measure of '
@@ -737,37 +852,37 @@ doc.add_paragraph(
 )
 
 doc.add_heading('6.2 Relationship to One-Person-One-Vote', level=2)
-doc.add_paragraph(
+add_text_para(
     'The one-person-one-vote (OPOV) principle is a cornerstone of democratic legitimacy. TATSUKI\'s '
     'candidate-centric formulation ensures that each voter casts exactly one ballot of equal face '
     'value. The trust coefficient modulates the candidate\'s electoral multiplier, not the voter\'s '
     'ballot weight. This is analogous to how electoral systems already weight votes differently '
     'through district magnitude, threshold rules, and seat allocation formulas. Baharad, Nitzan, '
-    'and Segal-Halevi (2022) provide a formal framework for evaluating when weighted voting is '
+    'and Segal-Halevi [28] provide a formal framework for evaluating when weighted voting is '
     'compatible with democratic principles, which can be extended to assess TATSUKI\'s legitimacy.'
 )
 
 doc.add_heading('6.3 Limitations', level=2)
-doc.add_paragraph(
+add_text_para(
     'Several limitations warrant acknowledgment. First, our simulation results depend on '
     'stylized assumptions about candidate types and voter behavior. Real-world electoral dynamics '
     'involve richer strategic interactions, coalition politics, and institutional constraints. '
     'Second, the effectiveness of the evaluation mechanism assumes that pledge fulfillment can be '
     'reliably and impartially assessed. While the empirical pledge fulfillment literature '
-    '(Thomson et al., 2017) supports feasibility, the implementation of an evaluation body raises '
+    '[10] supports feasibility, the implementation of an evaluation body raises '
     'questions of institutional design and political independence.'
 )
-doc.add_paragraph(
+add_text_para(
     'Third, we have not formally characterized the full strategy-proofness properties of TATSUKI '
-    'in the spirit of Gibbard-Satterthwaite. The adversarial GA analysis provides empirical evidence '
-    'of robustness, but a complete impossibility or possibility result for the TATSUKI mechanism class '
-    'remains an important open question. Fourth, the interaction between TATSUKI and existing '
-    'institutional features (federalism, coalition governance, term limits) has not been modeled and '
-    'likely introduces additional complexity.'
+    'in the spirit of Gibbard-Satterthwaite [18, 19]. The adversarial GA analysis provides '
+    'empirical evidence of robustness, but a complete impossibility or possibility result for the '
+    'TATSUKI mechanism class remains an important open question. Fourth, the interaction between '
+    'TATSUKI and existing institutional features (federalism, coalition governance, term limits) has '
+    'not been modeled and likely introduces additional complexity.'
 )
 
 doc.add_heading('6.4 The Asymmetry of Electoral Participation Encouragement', level=2)
-doc.add_paragraph(
+add_text_para(
     'A broader motivation underlying the TATSUKI proposal deserves explicit articulation. '
     'In many democracies, government-sponsored electoral participation campaigns focus almost '
     'exclusively on encouraging citizens to exercise their right to vote\u2014that is, the suffrage '
@@ -777,7 +892,7 @@ doc.add_paragraph(
     'systems, yet public discourse and administrative practice treat the former as a civic duty '
     'while largely neglecting the latter.'
 )
-doc.add_paragraph(
+add_text_para(
     'This imbalance reflects and reinforces a deeper structural limitation of contemporary '
     'representative democracy: citizens can express their political will only at the moment of '
     'voting, typically once every several years. Between elections, the formal channels for '
@@ -785,7 +900,7 @@ doc.add_paragraph(
     'democratic participation as a periodic, passive act of selection rather than a continuous, '
     'active engagement with governance.'
 )
-doc.add_paragraph(
+add_text_para(
     'TATSUKI addresses this concern from two directions. First, by introducing a continuous '
     'accountability loop\u2014where elected officials are evaluated on pledge fulfillment throughout '
     'their term\u2014the mechanism extends the temporal scope of democratic engagement beyond the '
@@ -801,14 +916,16 @@ doc.add_paragraph(
 )
 
 doc.add_heading('6.5 Future Directions', level=2)
-doc.add_paragraph(
+add_text_para(
     'Several extensions merit investigation. Formal characterization of incentive compatibility '
     'conditions for each influence function class would strengthen the theoretical foundations. '
     'Integration with liquid democracy or quadratic voting could be explored through combined '
     'mechanism designs. The empirical calibration presented in Section 5.5 could be extended to '
     'additional countries in the Comparative Party Pledges Database, enabling cross-national '
     'simulation experiments. Prospective field experiments in municipal or organizational contexts '
-    'could test TATSUKI\'s behavioral predictions. Finally, deliberative '
+    'could test TATSUKI\'s behavioral predictions. The emerging literature on AI-assisted mechanism '
+    'design for democratic governance [30] suggests that computational tools could further enhance '
+    'TATSUKI\'s evaluation and calibration processes. Finally, deliberative '
     'extensions incorporating citizen assemblies in the evaluation process could address concerns '
     'about technocratic assessment.'
 )
@@ -817,62 +934,68 @@ doc.add_paragraph(
 # 7. CONCLUSION
 # ══════════════════════════════════════════════
 doc.add_heading('7. Conclusion', level=1)
-doc.add_paragraph(
-    'We have introduced Trust-Adjusted Transparent Scoring with Unified Knowledge Integration (TATSUKI), a novel '
-    'electoral mechanism that institutionalizes retrospective accountability by linking candidate '
-    'trust coefficients to measured policy fulfillment. Through an ODD-compliant agent-based model '
-    'calibrated with empirical pledge fulfillment data from the Polimeter project and cross-national '
-    'benchmarks from Thomson et al. (2017), we demonstrated that TATSUKI raises accountability '
-    'levels, selects for sincere candidates, and exhibits robustness to adversarial exploitation. '
-    'Counterfactual analysis using real-world data from three Canadian parliamentary terms confirms '
-    'that TATSUKI produces stable, interpretable trust trajectories consistent with observed '
-    'fulfillment patterns. The mechanism is parameterized by a family of influence functions, with '
-    'concave and sigmoid specifications offering the best trade-off between incentive strength and '
-    'manipulation resistance. By framing the trust adjustment at the candidate level rather than '
+add_text_para(
+    'We have introduced Trust-Adjusted Transparent Scoring with Unified Knowledge Integration '
+    '(TATSUKI), a novel electoral mechanism that institutionalizes retrospective accountability by '
+    'linking candidate trust coefficients to measured policy fulfillment. Through an ODD-compliant '
+    'agent-based model calibrated with empirical pledge fulfillment data from the Polimeter project '
+    'and cross-national benchmarks from Thomson et al. [10], we demonstrated that TATSUKI raises '
+    'accountability levels, selects for sincere candidates, and exhibits robustness to adversarial '
+    'exploitation. Counterfactual analysis using real-world data from three Canadian parliamentary '
+    'terms confirms that TATSUKI produces stable, interpretable trust trajectories consistent with '
+    'observed fulfillment patterns. The mechanism is parameterized by a family of influence functions, '
+    'with concave and sigmoid specifications offering the best trade-off between incentive strength '
+    'and manipulation resistance. By framing the trust adjustment at the candidate level rather than '
     'the voter level, TATSUKI maintains compatibility with the one-person-one-vote principle while '
     'introducing a principled mechanism for performance-based electoral influence.'
 )
+
+# ══════════════════════════════════════════════
+# DATA AVAILABILITY STATEMENT
+# ══════════════════════════════════════════════
+doc.add_heading('Data Availability Statement', level=1)
+add_text_para(
+    'The Polimeter data used for empirical calibration are publicly available at '
+    'https://polimeter.org. The Thomson et al. [10] cross-national pledge fulfillment '
+    'data are available in the published article (American Journal of Political Science, '
+    '61(3), 527\u2013542). The simulation code and calibration scripts will be made available '
+    'in a public repository upon acceptance.'
+)
+
+# ══════════════════════════════════════════════
+# DECLARATIONS
+# ══════════════════════════════════════════════
+doc.add_heading('Statements and Declarations', level=1)
+
+p = doc.add_paragraph()
+r = p.add_run('Competing Interests: ')
+r.bold = True
+p.add_run('The authors declare that they have no known competing financial interests or personal '
+          'relationships that could have appeared to influence the work reported in this paper.')
+
+p = doc.add_paragraph()
+r = p.add_run('Funding: ')
+r.bold = True
+p.add_run('This research did not receive any specific grant from funding agencies in the public, '
+          'commercial, or not-for-profit sectors.')
+
+p = doc.add_paragraph()
+r = p.add_run('Ethics Statement: ')
+r.bold = True
+p.add_run('This study uses only publicly available aggregate data (Polimeter pledge tracking data '
+          'and published cross-national statistics). No human subjects were involved in data '
+          'collection. Ethical approval was not required for this research.')
 
 # ══════════════════════════════════════════════
 # REFERENCES
 # ══════════════════════════════════════════════
 doc.add_heading('References', level=1)
 
-refs = [
-    'Acemoglu, D., Golosov, M., & Tsyvinski, A. (2008). Political Economy of Mechanisms. Econometrica, 76(3), 619\u2013641.',
-    'Arrow, K. (1951). Social Choice and Individual Values. Yale University Press.',
-    'Baharad, R., Nitzan, S., & Segal-Halevi, E. (2022). One person, one weight: when is weighted voting democratic? Social Choice and Welfare, 59, 467\u2013493.',
-    'Barro, R. (1973). The control of politicians: an economic model. Public Choice, 14, 19\u201342.',
-    'Besley, T. (2006). Principled Agents? The Political Economy of Good Government. Oxford University Press.',
-    'Birch, L., & P\u00e9try, F. (2019). Assessing Justin Trudeau\u2019s Liberal Government: 353 Promises and a Mandate for Change. Les Presses de l\u2019Universit\u00e9 Laval.',
-    'Brill, M., Delemazure, T., George, A.-M., Lackner, M., & Schmidt-Kraepelin, U. (2022). Liquid Democracy with Ranked Delegations. In Proceedings of the AAAI Conference on Artificial Intelligence.',
-    'Bytzek, E., Dupont, J. C., Steffens, M. C., Knab, N., & Schneider, F. M. (2024). Do Election Pledges Matter? Politische Vierteljahresschrift, 66(4), 785\u2013804.',
-    'Christoff, Z., & Grossi, D. (2017). Binary Voting with Delegable Proxy. In Proceedings of TARK 2017.',
-    'Dasgupta, P., & Maskin, E. (2020). Strategy-Proofness, Independence of Irrelevant Alternatives, and Majority Rule. AER: Insights, 2(4), 459\u2013474.',
-    'Ferejohn, J. (1986). Incumbent Performance and Electoral Control. Public Choice, 50, 5\u201325.',
-    'Fiorina, M. P. (1981). Retrospective Voting in American National Elections. Yale University Press.',
-    'Gibbard, A. (1973). Manipulation of voting schemes. Econometrica, 41, 587\u2013601.',
-    'Grimm, V., Railsback, S. F., Vincenot, C. E., et al. (2020). The ODD Protocol for Describing Agent-Based and Other Simulation Models: A Second Update. Journal of Artificial Societies and Social Simulation, 23(2), 7.',
-    'Hanson, R. (2013). Shall We Vote on Values, But Bet on Beliefs? Journal of Political Philosophy, 21(2), 151\u2013173.',
-    'Healy, A., & Malhotra, N. (2013). Retrospective Voting Reconsidered. Annual Review of Political Science, 16, 285\u2013306.',
-    'Kahng, A., Mackenzie, S., & Procaccia, A. D. (2021). Liquid Democracy: An Algorithmic Perspective. Journal of Artificial Intelligence Research, 70, 1223\u20131252.',
-    'Key, V. O. (1966). The Responsible Electorate. Harvard University Press.',
-    'Koster, R., et al. (2022). Human-centred mechanism design with Democratic AI. Nature Human Behaviour, 6, 1398\u20131407.',
-    'Lalley, S., & Weyl, E. G. (2018). Quadratic Voting: How Mechanism Design Can Radicalize Democracy. AEA Papers and Proceedings, 1(1).',
-    'Laver, M. (2011). Party Competition: An Agent-Based Model. Princeton University Press.',
-    'Manin, B., Przeworski, A., & Stokes, S. C. (1999). Elections and Representation. In Democracy, Accountability, and Representation. Cambridge University Press.',
-    'Mitra, A. (2022). Agent-based Simulation of District-based Elections. arXiv:2205.14400.',
-    'Naurin, E., Royed, T. J., & Thomson, R. (Eds.). (2020). Party Mandates and Democracy. University of Michigan Press.',
-    'P\u00e9try, F., & Collette, B. (2009). Measuring How Political Parties Keep Their Promises. In Do They Walk Like They Talk? Springer.',
-    'P\u00e9try, F., & Fortier-Chouinard, A. (2024). Polimeter: An Independent Pledge Tracking Initiative. Centre for the Study of Democratic Citizenship, Universit\u00e9 Laval. https://polimeter.org',
-    'Posner, E. A., & Weyl, E. G. (2018). Radical Markets: Uprooting Capitalism and Democracy for a Just Society. Princeton University Press.',
-    'Satterthwaite, M. (1975). Strategy-proofness and Arrow\'s conditions. Journal of Economic Theory, 10, 187\u2013217.',
-    'Thomson, R., Royed, T., Naurin, E., et al. (2017). The Fulfillment of Parties\' Election Pledges: A Comparative Study. American Journal of Political Science, 61(3), 527\u2013542.',
-    'Tomlinson, K., Namjoshi, T., Ugander, J., & Kleinberg, J. (2024). Replicating Electoral Success. arXiv:2402.17109.',
-]
-
-for ref in refs:
-    p = doc.add_paragraph(ref)
+for i, ref in enumerate(REFS_ORDERED, 1):
+    p = doc.add_paragraph()
+    r = p.add_run(f'[{i}] ')
+    r.bold = True
+    p.add_run(ref)
     p.paragraph_format.left_indent = Cm(1.0)
     p.paragraph_format.first_line_indent = Cm(-1.0)
     p.paragraph_format.space_after = Pt(3)

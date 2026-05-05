@@ -1,13 +1,16 @@
 #!/usr/bin/env python3
-"""Generate Japanese Electoral Studies paper as .docx with embedded color figures."""
+"""Generate Japanese paper as .docx with numbered citations [1] for SSR/JCSS."""
 
+import re
 from docx import Document
 from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.style import WD_STYLE_TYPE
+from docx.oxml.ns import qn
 import os
 
 FIGS = os.path.join(os.path.dirname(__file__), '..', 'output', 'figures')
-OUT = os.path.join(os.path.dirname(__file__), '..', 'output', 'docx', 'TATSUKI_Electoral_Studies_Japanese.docx')
+OUT = os.path.join(os.path.dirname(__file__), '..', 'output', 'docx', 'TATSUKI_Paper_Japanese.docx')
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 
 doc = Document()
@@ -19,16 +22,6 @@ font.name = 'Times New Roman'
 font.size = Pt(11)
 style.paragraph_format.space_after = Pt(6)
 style.paragraph_format.line_spacing = 1.5
-# Set East Asian font
-rFonts = style.element.rPr.rFonts if style.element.rPr is not None else None
-if rFonts is None:
-    from docx.oxml.ns import qn
-    from lxml import etree
-    rPr = style.element.get_or_add_rPr()
-    rFonts_elem = rPr.find(qn('w:rFonts'))
-    if rFonts_elem is None:
-        rFonts_elem = etree.SubElement(rPr, qn('w:rFonts'))
-    rFonts_elem.set(qn('w:eastAsia'), 'Yu Mincho')
 
 for level in range(1, 4):
     hs = doc.styles[f'Heading {level}']
@@ -42,22 +35,139 @@ for level in range(1, 4):
     else:
         hs.font.size = Pt(11)
 
+# ── Reference numbering system ──────────────
+# Same ordering as English version for consistency.
+REFS_ORDERED = [
+    # [1]
+    'Manin, B., Przeworski, A., & Stokes, S. C. (1999). Elections and Representation. '
+    'In Democracy, Accountability, and Representation. Cambridge University Press.',
+    # [2]
+    'Fiorina, M. P. (1981). Retrospective Voting in American National Elections. Yale University Press.',
+    # [3]
+    'Key, V. O. (1966). The Responsible Electorate. Harvard University Press.',
+    # [4]
+    'Healy, A., & Malhotra, N. (2013). Retrospective Voting Reconsidered. '
+    'Annual Review of Political Science, 16, 285\u2013306.',
+    # [5]
+    'Lalley, S., & Weyl, E. G. (2018). Quadratic Voting: How Mechanism Design Can Radicalize Democracy. '
+    'AEA Papers and Proceedings, 1(1).',
+    # [6]
+    'Posner, E. A., & Weyl, E. G. (2018). Radical Markets: Uprooting Capitalism and Democracy for a '
+    'Just Society. Princeton University Press.',
+    # [7]
+    'Brill, M., Delemazure, T., George, A.-M., Lackner, M., & Schmidt-Kraepelin, U. (2022). '
+    'Liquid Democracy with Ranked Delegations. In Proceedings of the AAAI Conference on Artificial Intelligence.',
+    # [8]
+    'Kahng, A., Mackenzie, S., & Procaccia, A. D. (2021). Liquid Democracy: An Algorithmic Perspective. '
+    'Journal of Artificial Intelligence Research, 70, 1223\u20131252.',
+    # [9]
+    'Hanson, R. (2013). Shall We Vote on Values, But Bet on Beliefs? '
+    'Journal of Political Philosophy, 21(2), 151\u2013173.',
+    # [10]
+    'Thomson, R., Royed, T., Naurin, E., et al. (2017). The Fulfillment of Parties\' Election Pledges: '
+    'A Comparative Study. American Journal of Political Science, 61(3), 527\u2013542.',
+    # [11]
+    'P\u00e9try, F., & Collette, B. (2009). Measuring How Political Parties Keep Their Promises. '
+    'In Do They Walk Like They Talk? Springer.',
+    # [12]
+    'Grimm, V., Railsback, S. F., Vincenot, C. E., et al. (2020). The ODD Protocol for Describing '
+    'Agent-Based and Other Simulation Models: A Second Update. '
+    'Journal of Artificial Societies and Social Simulation, 23(2), 7.',
+    # [13]
+    'Birch, L., & P\u00e9try, F. (2019). Assessing Justin Trudeau\u2019s Liberal Government: '
+    '353 Promises and a Mandate for Change. Les Presses de l\u2019Universit\u00e9 Laval.',
+    # [14]
+    'Barro, R. (1973). The control of politicians: an economic model. Public Choice, 14, 19\u201342.',
+    # [15]
+    'Ferejohn, J. (1986). Incumbent Performance and Electoral Control. Public Choice, 50, 5\u201325.',
+    # [16]
+    'Besley, T. (2006). Principled Agents? The Political Economy of Good Government. '
+    'Oxford University Press.',
+    # [17]
+    'Arrow, K. (1951). Social Choice and Individual Values. Yale University Press.',
+    # [18]
+    'Gibbard, A. (1973). Manipulation of voting schemes. Econometrica, 41, 587\u2013601.',
+    # [19]
+    'Satterthwaite, M. (1975). Strategy-proofness and Arrow\'s conditions. '
+    'Journal of Economic Theory, 10, 187\u2013217.',
+    # [20]
+    'Dasgupta, P., & Maskin, E. (2020). Strategy-Proofness, Independence of Irrelevant Alternatives, '
+    'and Majority Rule. AER: Insights, 2(4), 459\u2013474.',
+    # [21]
+    'Acemoglu, D., Golosov, M., & Tsyvinski, A. (2008). Political Economy of Mechanisms. '
+    'Econometrica, 76(3), 619\u2013641.',
+    # [22]
+    'Christoff, Z., & Grossi, D. (2017). Binary Voting with Delegable Proxy. '
+    'In Proceedings of TARK 2017.',
+    # [23]
+    'Naurin, E., Royed, T. J., & Thomson, R. (Eds.). (2020). Party Mandates and Democracy. '
+    'University of Michigan Press.',
+    # [24]
+    'Bytzek, E., Dupont, J. C., Steffens, M. C., Knab, N., & Schneider, F. M. (2024). '
+    'Do Election Pledges Matter? Politische Vierteljahresschrift, 66(4), 785\u2013804.',
+    # [25]
+    'Laver, M. (2011). Party Competition: An Agent-Based Model. Princeton University Press.',
+    # [26]
+    'Mitra, A. (2022). Agent-based Simulation of District-based Elections. arXiv:2205.14400.',
+    # [27]
+    'Tomlinson, K., Namjoshi, T., Ugander, J., & Kleinberg, J. (2024). Replicating Electoral Success. '
+    'arXiv:2402.17109.',
+    # [28]
+    'Baharad, R., Nitzan, S., & Segal-Halevi, E. (2022). One person, one weight: when is weighted '
+    'voting democratic? Social Choice and Welfare, 59, 467\u2013493.',
+    # [29]
+    'P\u00e9try, F., & Fortier-Chouinard, A. (2024). Polimeter: An Independent Pledge Tracking Initiative. '
+    'Centre for the Study of Democratic Citizenship, Universit\u00e9 Laval. https://polimeter.org',
+    # [30]
+    'Koster, R., et al. (2022). Human-centred mechanism design with Democratic AI. '
+    'Nature Human Behaviour, 6, 1398\u20131407.',
+]
+
+
 def add_para(text, bold=False, italic=False, align=None, size=None, space_after=None):
     p = doc.add_paragraph()
-    run = p.add_run(text)
-    run.bold = bold
-    run.italic = italic
-    if size:
-        run.font.size = Pt(size)
+    parts = re.split(r'(\{[^}]+\})', text)
+    for part in parts:
+        if part.startswith('{') and part.endswith('}'):
+            run = p.add_run(part[1:-1])
+            run.font.superscript = True
+            if size:
+                run.font.size = Pt(size)
+            if bold:
+                run.bold = True
+            if italic:
+                run.italic = italic
+        else:
+            run = p.add_run(part)
+            run.bold = bold
+            run.italic = italic
+            if size:
+                run.font.size = Pt(size)
     if align:
         p.alignment = align
     if space_after is not None:
         p.paragraph_format.space_after = Pt(space_after)
     return p
 
+
+def add_text_para(text):
+    """Add paragraph with inline [N] citation references rendered as superscript."""
+    p = doc.add_paragraph()
+    parts = re.split(r'(\[[0-9, \u2013-]+\])', text)
+    for part in parts:
+        if re.match(r'^\[[0-9, \u2013-]+\]$', part):
+            run = p.add_run(part)
+            run.font.superscript = True
+            run.font.size = Pt(9)
+        else:
+            run = p.add_run(part)
+    return p
+
+
 def add_figure(path, caption, width=5.5):
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p.paragraph_format.space_before = Pt(12)
     run = p.add_run()
     run.add_picture(path, width=Inches(width))
     cap = doc.add_paragraph()
@@ -65,717 +175,549 @@ def add_figure(path, caption, width=5.5):
     r = cap.add_run(caption)
     r.italic = True
     r.font.size = Pt(10)
+    cap.paragraph_format.space_before = Pt(6)
     cap.paragraph_format.space_after = Pt(12)
 
+
 # ══════════════════════════════════════════════
-# 表紙
+# TITLE PAGE
 # ══════════════════════════════════════════════
 add_para('', space_after=24)
 add_para(
-    '統合的知識に基づく透明性信頼調整型評価システム（TATSUKI 襷）：\n'
-    '実証的較正を伴う説明責任駆動型選挙制度改革のエージェントベースモデル',
+    'Trust-Adjusted Transparent Scoring with Unified Knowledge Integration (TATSUKI):\n'
+    '\u5b9f\u8a3c\u7684\u8f03\u6b63\u3092\u4f34\u3046\u8aac\u660e\u8cac\u4efb\u99c6\u52d5\u578b\u9078\u6319\u6539\u9769\u306e\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u8a08\u7b97\u30e2\u30c7\u30eb',
     bold=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=18, space_after=12
 )
-add_para(
-    'Trust-Adjusted Transparent Scoring with Unified Knowledge Integration (TATSUKI):\n'
-    'An Agent-Based Model of Accountability-Driven Electoral Reform with Empirical Calibration',
-    italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=12, space_after=12
-)
-add_para('[査読用匿名版 \u2014 著者名・所属機関非開示]',
+add_para('[\u67fb\u8aad\u306e\u305f\u3081\u8457\u8005\u540d\u975e\u516c\u958b]',
+         italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=11, space_after=6)
+add_para('[\u6240\u5c5e\u6a5f\u95a2\u975e\u516c\u958b]',
          italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=11, space_after=24)
 
-# ── 要旨 ──
-doc.add_heading('要旨（Abstract）', level=1)
+# ── Abstract ──
+doc.add_heading('\u8981\u65e8\uff08Abstract\uff09', level=1)
 doc.add_paragraph(
-    '民主主義的選挙は代議士の説明責任を確保する主要なメカニズムであるが、選挙的制裁の二値的性質'
-    '（再選か否か）は公約実現のインセンティブとして粗い手段に留まる。本論文では、候補者信任係数を'
-    '用いた統合的知識に基づく透明性信頼調整型評価システム（TATSUKI: Trust-Adjusted Transparent Scoring with Unified Knowledge Integration）'
-    'を提案する。TATSUKIでは、候補者が重み付き公約ポートフォリオを事前宣言し、任期終了時に第三者'
-    '評価機関が実現度を査定し、その結果得られる説明責任得点を影響関数によって候補者レベルの信任'
-    '係数に変換して次回選挙の有効得票数に反映する。ODDプロトコルに準拠したエージェントベースモデル'
-    'により多世代選挙動態をシミュレーションし、Polimeterプロジェクト（カナダ連邦3議会期の公約'
-    '1,050件）およびThomson et al.（2017）の国際データによる実証的較正を行った。TATSUKIは'
-    '(i)標準選挙と比較して平均説明責任得点を有意に向上させ、(ii)誠実な候補者を有利とする進化的'
-    '淘汰圧を生じさせ、(iii)敵対的戦略に対してロバスト性を示し、(iv)実世界データへの遡及的適用'
-    'において実証的実現パターンと整合する反事実的信任軌跡を生成することが確認された。'
-    '感度分析の結果、凹関数およびシグモイド型影響関数がインセンティブ強度と操作耐性の最適な'
-    'トレードオフを提供することが明らかになった。'
+    '\u6c11\u4e3b\u4e3b\u7fa9\u9078\u6319\u306f\u5e02\u6c11\u304c\u4ee3\u8b70\u58eb\u306b\u8aac\u660e\u8cac\u4efb\u3092\u554f\u3046\u4e3b\u8981\u306a\u30e1\u30ab\u30cb\u30ba\u30e0\u3067\u3042\u308b\u304c\u3001\u9078\u6319\u7684\u5236\u88c1\u306e\u4e8c\u5024\u7684\u6027\u8cea'
+    '\uff08\u518d\u9078\u304b\u9664\u53bb\u304b\uff09\u306f\u653f\u7b56\u5b9f\u73fe\u3092\u52d5\u6a5f\u3065\u3051\u308b\u7c97\u3044\u624b\u6bb5\u3057\u304b\u63d0\u4f9b\u3057\u306a\u3044\u3002'
+    '\u672c\u8ad6\u6587\u3067\u306f\u3001Trust-Adjusted Transparent Scoring with Unified Knowledge Integration'
+    '\uff08TATSUKI\uff09\u3092\u63d0\u6848\u3059\u308b\u3002\u5019\u88dc\u8005\u304c\u91cd\u307f\u4ed8\u304d\u653f\u7b56\u516c\u7d04\u3092\u4e8b\u524d\u5ba3\u8a00\u3057\u3001\u7b2c\u4e09\u8005\u8a55\u4fa1\u6a5f\u95a2\u304c'
+    '\u4efb\u671f\u7d42\u4e86\u6642\u306b\u5b9f\u73fe\u5ea6\u3092\u67fb\u5b9a\u3057\u3001\u305d\u306e\u7d50\u679c\u5f97\u3089\u308c\u308b\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u304c\u5019\u88dc\u8005\u30ec\u30d9\u30eb\u306e\u4fe1\u4efb\u4fc2\u6570\u3092'
+    '\u8abf\u6574\u3059\u308b\u65b0\u898f\u9078\u6319\u30e1\u30ab\u30cb\u30ba\u30e0\u3067\u3042\u308b\u3002ODD\u30d7\u30ed\u30c8\u30b3\u30eb\u306b\u6e96\u62e0\u3057\u305f\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30e2\u30c7\u30eb'
+    '\uff08ABM\uff09\u3092\u7528\u3044\u3066\u3001\u5f71\u97ff\u95a2\u6570\u65cf\u306b\u308f\u305f\u308bTATSUKI\u4e0b\u306e\u591a\u4e16\u4ee3\u9078\u6319\u52d5\u614b\u3092\u30b7\u30df\u30e5\u30ec\u30fc\u30c8\u3059\u308b\u3002'
+    'Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\uff08\u30ab\u30ca\u30c0\u9023\u90a3\u653f\u5e9c3\u8b70\u4f1a\u671f\u30011,050\u4ef6\u306e\u516c\u7d04\uff09\u304a\u3088\u3073Thomson et al.\u306e'
+    '\u56fd\u969b\u30c7\u30fc\u30bf\u3067\u8f03\u6b63\u3057\u305f\u7d50\u679c\u3001TATSUKI\u304c\uff08i\uff09\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u3092\u6709\u610f\u306b\u5411\u4e0a\u3055\u305b\u3001'
+    '\uff08ii\uff09\u8aa0\u5b9f\u306a\u5019\u88dc\u8005\u3092\u9078\u597d\u3059\u308b\u9032\u5316\u7684\u6dd8\u6c70\u5727\u3092\u751f\u307f\u51fa\u3057\u3001\uff08iii\uff09\u907a\u4f1d\u7684\u30a2\u30eb\u30b4\u30ea\u30ba\u30e0\u63a2\u7d22\u306b\u3088\u308b'
+    '\u6575\u5bfe\u7684\u653b\u7565\u306b\u5bfe\u3057\u30ed\u30d0\u30b9\u30c8\u6027\u3092\u793a\u3057\u3001\uff08iv\uff09\u5b9f\u4e16\u754c\u30c7\u30fc\u30bf\u3078\u306e\u9060\u5e94\u7684\u9069\u7528'
+    '\u306b\u304a\u3044\u3066\u5b9f\u8a3c\u7684\u5b9f\u73fe\u30d1\u30bf\u30fc\u30f3\u3068\u6574\u5408\u3059\u308b\u53cd\u4e8b\u5b9f\u7684\u4fe1\u4efb\u8ecc\u8de1\u3092\u751f\u6210\u3059\u308b\u3053\u3068\u304c\u78ba\u8a8d\u3055\u308c\u305f\u3002'
+    '\u611f\u5ea6\u5206\u6790\u306e\u7d50\u679c\u3001\u51f9\u95a2\u6570\u304a\u3088\u3073\u30b7\u30b0\u30e2\u30a4\u30c9\u578b\u5f71\u97ff\u95a2\u6570\u304c\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u5f37\u5ea6\u3068\u64cd\u4f5c\u8010\u6027\u306e\u6700\u9069\u306a'
+    '\u30c8\u30ec\u30fc\u30c9\u30aa\u30d5\u3092\u63d0\u4f9b\u3059\u308b\u3053\u3068\u304c\u660e\u3089\u304b\u306b\u306a\u3063\u305f\u3002'
 )
 
-add_para('キーワード：選挙的説明責任、エージェントベースモデル、メカニズムデザイン、'
-         '回顧的投票、加重信任、公約実現度、実証的較正、公約追跡',
+add_para('\u30ad\u30fc\u30ef\u30fc\u30c9\uff1a\u9078\u6319\u7684\u8aac\u660e\u8cac\u4efb\u3001\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30e2\u30c7\u30eb\u3001\u8a08\u7b97\u793e\u4f1a\u79d1\u5b66\u3001'
+         '\u30e1\u30ab\u30cb\u30ba\u30e0\u30c7\u30b6\u30a4\u30f3\u3001\u56de\u9867\u7684\u6295\u7968\u3001\u516c\u7d04\u5b9f\u73fe\u5ea6',
          italic=True, size=10, space_after=18)
 
 # ══════════════════════════════════════════════
 # 1. 序論
 # ══════════════════════════════════════════════
-doc.add_heading('1. 序論（Introduction）', level=1)
+doc.add_heading('1. \u5e8f\u8ad6\uff08Introduction\uff09', level=1)
 
-doc.add_paragraph(
-    '選挙は代議制民主主義の根幹であり、市民が代議士を定期的に評価・制裁する機会を提供する'
-    '（Manin, Przeworski, & Stokes, 1999）。回顧的投票の文献は、有権者が実際に過去の政権運営実績に'
-    '基づいて投票行動を決定していることを実証的に示してきた（Fiorina, 1981; Key, 1966; '
-    'Healy & Malhotra, 2013）。しかしながら、この説明責任メカニズムは非公式に機能している。有権者は'
-    '複雑な政策成果を独自に評価しなければならず、選挙的制裁そのものは公約実現度にかかわらず二値的'
-    '\u2014再選か除去か\u2014に留まる。'
+add_text_para(
+    '\u9078\u6319\u306f\u4ee3\u8b70\u5236\u6c11\u4e3b\u4e3b\u7fa9\u306e\u6839\u5e79\u3067\u3042\u308a\u3001\u5e02\u6c11\u304c\u4ee3\u8b70\u58eb\u3092\u5b9a\u671f\u7684\u306b\u8a55\u4fa1\u30fb\u5236\u88c1\u3059\u308b\u6a5f\u4f1a\u3092\u63d0\u4f9b\u3059\u308b'
+    ' [1]\u3002\u56de\u9867\u7684\u6295\u7968\u306e\u6587\u732e\u306f\u3001\u6709\u6a29\u8005\u304c\u5b9f\u969b\u306b\u904e\u53bb\u306e\u653f\u6a29\u904b\u55b6\u5b9f\u7e3e\u306b'
+    '\u57fa\u3065\u3044\u3066\u6295\u7968\u884c\u52d5\u3092\u6c7a\u5b9a\u3057\u3066\u3044\u308b\u3053\u3068\u3092\u5b9f\u8a3c\u7684\u306b\u793a\u3057\u3066\u304d\u305f [2\u20134]\u3002\u3057\u304b\u3057\u306a\u304c\u3089\u3001\u3053\u306e\u8aac\u660e\u8cac\u4efb\u30e1\u30ab\u30cb\u30ba\u30e0\u306f\u975e\u516c\u5f0f\u306b\u6a5f\u80fd\u3057\u3066\u3044\u308b\u3002\u6709\u6a29\u8005\u306f'
+    '\u8907\u96d1\u306a\u653f\u7b56\u6210\u679c\u3092\u72ec\u81ea\u306b\u8a55\u4fa1\u3057\u306a\u3051\u308c\u3070\u306a\u3089\u305a\u3001\u9078\u6319\u7684\u5236\u88c1\u305d\u306e\u3082\u306e\u306f\u516c\u7d04\u5b9f\u73fe\u5ea6\u306b\u304b\u304b\u308f\u3089\u305a\u4e8c\u5024\u7684'
+    '\u2014\u518d\u9078\u304b\u9664\u53bb\u304b\u2014\u306b\u7559\u307e\u308b\u3002'
 )
 
-doc.add_paragraph(
-    'これまで、選挙の構造を修正することで民主的意思決定を改善しようとする革新的提案がいくつか'
-    'なされてきた。Quadratic Voting（QV）は選好強度を二次コストで表現する（Lalley & Weyl, 2018; '
-    'Posner & Weyl, 2018）。Liquid Democracy（流動的民主制）は投票権の柔軟な委任を可能にする'
-    '（Brill et al., 2022; Kahng, Mackenzie, & Procaccia, 2021）。Futarchy は予測市場を用いて'
-    '政策決定を行う（Hanson, 2013）。これらはそれぞれ選挙プロセスの異なる次元を修正するが、'
-    '選挙公約と任期中の実績の間の回顧的説明責任関係を直接的に制度化するものはない。'
+add_text_para(
+    '\u3053\u308c\u307e\u3067\u3001\u9078\u6319\u306e\u69cb\u9020\u3092\u4fee\u6b63\u3059\u308b\u3053\u3068\u3067\u6c11\u4e3b\u7684\u610f\u601d\u6c7a\u5b9a\u3092\u6539\u5584\u3057\u3088\u3046\u3068\u3059\u308b\u9769\u65b0\u7684\u63d0\u6848\u304c\u3044\u304f\u3064\u304b'
+    '\u306a\u3055\u308c\u3066\u304d\u305f\u3002Quadratic Voting\uff08QV\uff09\u306f\u9078\u597d\u5f37\u5ea6\u3092\u4e8c\u6b21\u30b3\u30b9\u30c8\u3067\u8868\u73fe\u3059\u308b [5, 6]\u3002Liquid Democracy\uff08\u6d41\u52d5\u7684\u6c11\u4e3b\u5236\uff09\u306f\u6295\u7968\u6a29\u306e\u67d4\u8edf\u306a\u59d4\u4efb\u3092\u53ef\u80fd\u306b\u3059\u308b'
+    ' [7, 8]\u3002Futarchy\u306f\u4e88\u6e2c\u5e02\u5834\u3092\u7528\u3044\u3066'
+    '\u653f\u7b56\u6c7a\u5b9a\u3092\u884c\u3046 [9]\u3002\u3053\u308c\u3089\u306f\u305d\u308c\u305e\u308c\u9078\u6319\u30d7\u30ed\u30bb\u30b9\u306e\u7570\u306a\u308b\u6b21\u5143\u3092\u4fee\u6b63\u3059\u308b\u304c\u3001'
+    '\u9078\u6319\u516c\u7d04\u3068\u4efb\u671f\u4e2d\u306e\u5b9f\u7e3e\u306e\u9593\u306e\u56de\u9867\u7684\u8aac\u660e\u8cac\u4efb\u95a2\u4fc2\u3092\u76f4\u63a5\u7684\u306b\u5236\u5ea6\u5316\u3059\u308b\u3082\u306e\u306f\u306a\u3044\u3002'
 )
 
-doc.add_paragraph(
-    '一方、選挙公約実現度に関する実証研究は、公約遵守が計測可能かつ変動的であることを確立して'
-    'いる。Thomson et al.（2017）は12か国57選挙の20,000件超の公約を分析し、与党が公約の過半数を'
-    '実現していることを示した。Pétry and Collette（2009）は国際平均の実現率を約67%と報告している。'
-    'これらの知見は、公約実現度の体系的評価が実行可能であり、制度化された説明責任メカニズムの'
-    '経験的基盤たりうることを示唆する。'
+add_text_para(
+    '\u4e00\u65b9\u3001\u9078\u6319\u516c\u7d04\u5b9f\u73fe\u5ea6\u306b\u95a2\u3059\u308b\u5b9f\u8a3c\u7814\u7a76\u306f\u3001\u516c\u7d04\u9075\u5b88\u304c\u8a08\u6e2c\u53ef\u80fd\u304b\u3064\u5909\u52d5\u7684\u3067\u3042\u308b\u3053\u3068\u3092\u78ba\u7acb\u3057\u3066'
+    '\u3044\u308b\u3002Thomson et al. [10]\u306f12\u304b\u56fd57\u9078\u6319\u306e20,000\u4ef6\u8d85\u306e\u516c\u7d04\u3092\u5206\u6790\u3057\u3001\u4e0e\u515a\u304c\u516c\u7d04\u306e\u904e\u534a\u6570\u3092'
+    '\u5b9f\u73fe\u3057\u3066\u3044\u308b\u3053\u3068\u3092\u793a\u3057\u305f\u3002P\u00e9try and Collette [11]\u306f\u56fd\u969b\u5e73\u5747\u306e\u5b9f\u73fe\u7387\u3092\u7d0467%\u3068\u5831\u544a\u3057\u3066\u3044\u308b\u3002'
+    '\u3053\u308c\u3089\u306e\u77e5\u898b\u306f\u3001\u516c\u7d04\u5b9f\u73fe\u5ea6\u306e\u4f53\u7cfb\u7684\u8a55\u4fa1\u304c\u5b9f\u884c\u53ef\u80fd\u3067\u3042\u308a\u3001\u5236\u5ea6\u5316\u3055\u308c\u305f\u8aac\u660e\u8cac\u4efb\u30e1\u30ab\u30cb\u30ba\u30e0\u306e'
+    '\u7d4c\u9a13\u7684\u57fa\u76e4\u305f\u308a\u3046\u308b\u3053\u3068\u3092\u793a\u5506\u3059\u308b\u3002'
 )
 
-doc.add_paragraph(
-    '本論文では、非公式な回顧的投票と公式な制度設計の間のギャップを埋めるTATSUKI（Trust-Adjusted '
-    'Transparent Scoring with Unified Knowledge Integration）を提案する。TATSUKIでは、候補者が選挙時に'
-    '重み付きの公約ポートフォリオを事前宣言し、独立した評価機関が任期終了時に実現度を査定し、'
-    'その結果得られる説明責任得点が影響関数を通じて信任係数に変換され、次回選挙での有効得票数に'
-    '反映される。この調整を個々の有権者の票の重みではなく候補者レベルの信任係数として定式化する'
-    'ことで、一人一票の原則との整合性を維持する点が重要である。'
+add_text_para(
+    '\u672c\u8ad6\u6587\u3067\u306f\u3001\u975e\u516c\u5f0f\u306a\u56de\u9867\u7684\u6295\u7968\u3068\u516c\u5f0f\u306a\u5236\u5ea6\u8a2d\u8a08\u306e\u9593\u306e\u30ae\u30e3\u30c3\u30d7\u3092\u57cb\u3081\u308bTATSUKI\uff08Trust-Adjusted '
+    'Transparent Scoring with Unified Knowledge Integration\uff09\u3092\u63d0\u6848\u3059\u308b\u3002TATSUKI\u3067\u306f\u3001\u5019\u88dc\u8005\u304c\u9078\u6319\u6642\u306b'
+    '\u91cd\u307f\u4ed8\u304d\u306e\u516c\u7d04\u30dd\u30fc\u30c8\u30d5\u30a9\u30ea\u30aa\u3092\u4e8b\u524d\u5ba3\u8a00\u3057\u3001\u72ec\u7acb\u3057\u305f\u8a55\u4fa1\u6a5f\u95a2\u304c\u4efb\u671f\u7d42\u4e86\u6642\u306b\u5b9f\u73fe\u5ea6\u3092\u67fb\u5b9a\u3057\u3001'
+    '\u305d\u306e\u7d50\u679c\u5f97\u3089\u308c\u308b\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u304c\u5f71\u97ff\u95a2\u6570\u3092\u901a\u3058\u3066\u4fe1\u4efb\u4fc2\u6570\u306b\u5909\u63db\u3055\u308c\u3001\u6b21\u56de\u9078\u6319\u3067\u306e\u6709\u52b9\u5f97\u7968\u6570\u306b'
+    '\u53cd\u6620\u3055\u308c\u308b\u3002\u3053\u306e\u8abf\u6574\u3092\u500b\u3005\u306e\u6709\u6a29\u8005\u306e\u7968\u306e\u91cd\u307f\u3067\u306f\u306a\u304f\u5019\u88dc\u8005\u30ec\u30d9\u30eb\u306e\u4fe1\u4efb\u4fc2\u6570\u3068\u3057\u3066\u5b9a\u5f0f\u5316\u3059\u308b'
+    '\u3053\u3068\u3067\u3001\u4e00\u4eba\u4e00\u7968\u306e\u539f\u5247\u3068\u306e\u6574\u5408\u6027\u3092\u7dad\u6301\u3059\u308b\u70b9\u304c\u91cd\u8981\u3067\u3042\u308b\u3002'
 )
 
-doc.add_paragraph(
-    'TATSUKIを影響関数ω(S)の選択によりパラメータ化されたメカニズム族として定式化し、エージェント'
-    'ベースモデリング（ABM）を用いてシステムの動的特性を調査する。ODDプロトコル（Grimm et al., '
-    '2020）に準拠し、異質な候補者タイプ（誠実型・ポピュリスト型・戦略的欺瞞型）間の多世代選挙'
-    '競争をシミュレートし、均衡結果、進化動態、および遺伝的アルゴリズム探索による敵対的攻略耐性を'
-    '検討する。本論文の貢献は以下の通りである。'
+add_text_para(
+    'TATSUKI\u3092\u5f71\u97ff\u95a2\u6570\u03c9(S)\u306e\u9078\u629e\u306b\u3088\u308a\u30d1\u30e9\u30e1\u30fc\u30bf\u5316\u3055\u308c\u305f\u30e1\u30ab\u30cb\u30ba\u30e0\u65cf\u3068\u3057\u3066\u5b9a\u5f0f\u5316\u3057\u3001\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8'
+    '\u30d9\u30fc\u30b9\u30e2\u30c7\u30ea\u30f3\u30b0\uff08ABM\uff09\u3092\u7528\u3044\u3066\u30b7\u30b9\u30c6\u30e0\u306e\u52d5\u7684\u7279\u6027\u3092\u8abf\u67fb\u3059\u308b\u3002ODD\u30d7\u30ed\u30c8\u30b3\u30eb [12]\u306b\u6e96\u62e0\u3057\u3001\u7570\u8cea\u306a\u5019\u88dc\u8005\u30bf\u30a4\u30d7\uff08\u8aa0\u5b9f\u578b\u30fb\u30dd\u30d4\u30e5\u30ea\u30b9\u30c8\u578b\u30fb\u6226\u7565\u7684\u6b3a\u779e\u578b\uff09\u9593\u306e\u591a\u4e16\u4ee3\u9078\u6319'
+    '\u7af6\u4e89\u3092\u30b7\u30df\u30e5\u30ec\u30fc\u30c8\u3057\u3001\u5747\u8861\u7d50\u679c\u3001\u9032\u5316\u52d5\u614b\u3001\u304a\u3088\u3073\u907a\u4f1d\u7684\u30a2\u30eb\u30b4\u30ea\u30ba\u30e0\u63a2\u7d22\u306b\u3088\u308b\u6575\u5bfe\u7684\u653b\u7565\u8010\u6027\u3092'
+    '\u691c\u8a0e\u3059\u308b\u3002\u672c\u8ad6\u6587\u306e\u8ca2\u732e\u306f\u4ee5\u4e0b\u306e\u901a\u308a\u3067\u3042\u308b\u3002'
 )
 
 contributions_ja = [
-    '事前宣言された公約の重みと任期後の信任係数を結びつけることで、回顧的説明責任を制度化する'
-    '新たな選挙メカニズムTATSUKIを導入する。',
-    '影響関数ω(S)の関数族を規定し、インセンティブ両立性条件および操作耐性を含む理論的性質を'
-    '分析する。',
-    'TATSUKI下の多世代選挙動態をシミュレーションするODD準拠エージェントベースモデルを提示し、'
-    '誠実な候補者を選択する能力を実証する。',
-    '遺伝的アルゴリズムを用いた敵対的ロバスト性分析を行い、各影響関数バリアントに対する最も'
-    '効果的な攻略戦略を特定・分析する。',
-    'TATSUKIと既存の選挙制度改革提案との体系的比較を行い、理論的位置づけを確立する。',
-    'Polimeterプロジェクト（Pétry & Birch, 2019）および比較政党公約データベース（Thomson et al., 2017）'
-    'の実証的公約実現データを用いてモデルを較正し、TATSUKIの実世界の政治的帰結に対する予測効果を'
-    '示す反事実分析を実施する。'
+    '\u4e8b\u524d\u5ba3\u8a00\u3055\u308c\u305f\u516c\u7d04\u306e\u91cd\u307f\u3068\u4efb\u671f\u5f8c\u306e\u4fe1\u4efb\u4fc2\u6570\u3092\u7d50\u3073\u3064\u3051\u308b\u3053\u3068\u3067\u3001\u56de\u9867\u7684\u8aac\u660e\u8cac\u4efb\u3092\u5236\u5ea6\u5316\u3059\u308b'
+    '\u65b0\u305f\u306a\u9078\u6319\u30e1\u30ab\u30cb\u30ba\u30e0TATSUKI\u3092\u5c0e\u5165\u3059\u308b\u3002',
+    '\u5f71\u97ff\u95a2\u6570\u03c9(S)\u306e\u95a2\u6570\u65cf\u3092\u898f\u5b9a\u3057\u3001\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u4e21\u7acb\u6027\u6761\u4ef6\u304a\u3088\u3073\u64cd\u4f5c\u8010\u6027\u3092\u542b\u3080\u7406\u8ad6\u7684\u6027\u8cea\u3092'
+    '\u5206\u6790\u3059\u308b\u3002',
+    'TATSUKI\u4e0b\u306e\u591a\u4e16\u4ee3\u9078\u6319\u52d5\u614b\u3092\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u3059\u308bODD\u6e96\u62e0\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30e2\u30c7\u30eb\u3092\u63d0\u793a\u3057\u3001'
+    '\u8aa0\u5b9f\u306a\u5019\u88dc\u8005\u3092\u9078\u629e\u3059\u308b\u80fd\u529b\u3092\u5b9f\u8a3c\u3059\u308b\u3002',
+    '\u907a\u4f1d\u7684\u30a2\u30eb\u30b4\u30ea\u30ba\u30e0\u3092\u7528\u3044\u305f\u6575\u5bfe\u7684\u30ed\u30d0\u30b9\u30c8\u6027\u5206\u6790\u3092\u884c\u3044\u3001\u5404\u5f71\u97ff\u95a2\u6570\u30d0\u30ea\u30a2\u30f3\u30c8\u306b\u5bfe\u3059\u308b\u6700\u3082'
+    '\u52b9\u679c\u7684\u306a\u653b\u7565\u6226\u7565\u3092\u7279\u5b9a\u30fb\u5206\u6790\u3059\u308b\u3002',
+    'TATSUKI\u3068\u65e2\u5b58\u306e\u9078\u6319\u5236\u5ea6\u6539\u9769\u63d0\u6848\u3068\u306e\u4f53\u7cfb\u7684\u6bd4\u8f03\u3092\u884c\u3044\u3001\u7406\u8ad6\u7684\u4f4d\u7f6e\u3065\u3051\u3092\u78ba\u7acb\u3059\u308b\u3002',
+    'Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 [13]\u304a\u3088\u3073\u6bd4\u8f03\u653f\u515a\u516c\u7d04\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9 [10]\u306e'
+    '\u5b9f\u8a3c\u7684\u516c\u7d04\u5b9f\u73fe\u30c7\u30fc\u30bf\u3092\u7528\u3044\u3066\u30e2\u30c7\u30eb\u3092\u8f03\u6b63\u3057\u3001TATSUKI\u306e\u5b9f\u4e16\u754c\u306e\u653f\u6cbb\u7684\u5e30\u7d50\u306b\u5bfe\u3059\u308b\u4e88\u6e2c\u52b9\u679c\u3092'
+    '\u793a\u3059\u53cd\u4e8b\u5b9f\u5206\u6790\u3092\u5b9f\u65bd\u3059\u308b\u3002'
 ]
 for i, c in enumerate(contributions_ja, 1):
-    doc.add_paragraph(f'{i}. {c}')
+    add_text_para(f'{i}. {c}')
 
-doc.add_paragraph(
-    '論文の構成は以下の通りである。第2節で先行研究をレビューする。第3節で形式モデルを提示する。'
-    '第4節でODDプロトコルに基づくエージェントベースシミュレーションを記述する。第5節で'
-    'シミュレーション結果を報告する。第6節で含意と限界を議論する。第7節で結論を述べる。'
+add_text_para(
+    '\u8ad6\u6587\u306e\u69cb\u6210\u306f\u4ee5\u4e0b\u306e\u901a\u308a\u3067\u3042\u308b\u3002\u7b2c2\u7bc0\u3067\u5148\u884c\u7814\u7a76\u3092\u30ec\u30d3\u30e5\u30fc\u3059\u308b\u3002\u7b2c3\u7bc0\u3067\u5f62\u5f0f\u30e2\u30c7\u30eb\u3092\u63d0\u793a\u3059\u308b\u3002'
+    '\u7b2c4\u7bc0\u3067ODD\u30d7\u30ed\u30c8\u30b3\u30eb\u306b\u57fa\u3065\u304f\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u3092\u8a18\u8ff0\u3059\u308b\u3002\u7b2c5\u7bc0\u3067'
+    '\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u7d50\u679c\u3092\u5831\u544a\u3059\u308b\u3002\u7b2c6\u7bc0\u3067\u542b\u610f\u3068\u9650\u754c\u3092\u8b70\u8ad6\u3059\u308b\u3002\u7b2c7\u7bc0\u3067\u7d50\u8ad6\u3092\u8ff0\u3079\u308b\u3002'
 )
 
 # ══════════════════════════════════════════════
 # 2. 先行研究
 # ══════════════════════════════════════════════
-doc.add_heading('2. 先行研究（Related Work）', level=1)
+doc.add_heading('2. \u5148\u884c\u7814\u7a76\uff08Related Work\uff09', level=1)
 
-doc.add_heading('2.1 回顧的投票と選挙的説明責任', level=2)
-doc.add_paragraph(
-    'Key（1966）に始まりFiorina（1981）が形式化した回顧的投票の伝統は、有権者が将来の政策公約'
-    'よりも過去の実績に基づいて現職者を評価すると主張する。Healy and Malhotra（2013）は包括的な'
-    'レビューを提供し、有権者はしばしば近視眼的で、直近のイベントを不均衡に重み付けし、無関係な'
-    '要因に影響されやすいと指摘する。TATSUKIは、回顧的評価プロセスを制度化し、有権者の主観的評価を'
-    '事前宣言された公約の構造化された第三者評価に置き換えることで、これらの限界に対処する。'
+doc.add_heading('2.1 \u56de\u9867\u7684\u6295\u7968\u3068\u9078\u6319\u7684\u8aac\u660e\u8cac\u4efb', level=2)
+add_text_para(
+    'Key [3]\u306b\u59cb\u307e\u308aFiorina [2]\u304c\u5f62\u5f0f\u5316\u3057\u305f\u56de\u9867\u7684\u6295\u7968\u306e\u4f1d\u7d71\u306f\u3001\u6709\u6a29\u8005\u304c\u5c06\u6765\u306e\u653f\u7b56\u516c\u7d04'
+    '\u3088\u308a\u3082\u904e\u53bb\u306e\u5b9f\u7e3e\u306b\u57fa\u3065\u3044\u3066\u73fe\u8077\u8005\u3092\u8a55\u4fa1\u3059\u308b\u3068\u4e3b\u5f35\u3059\u308b\u3002Healy and Malhotra [4]\u306f\u5305\u62ec\u7684\u306a'
+    '\u30ec\u30d3\u30e5\u30fc\u3092\u63d0\u4f9b\u3057\u3001\u6709\u6a29\u8005\u306f\u3057\u3070\u3057\u3070\u8fd1\u8996\u773c\u7684\u3067\u3001\u76f4\u8fd1\u306e\u30a4\u30d9\u30f3\u30c8\u3092\u4e0d\u5747\u8861\u306b\u91cd\u307f\u4ed8\u3051\u3057\u3001\u7121\u95a2\u4fc2\u306a'
+    '\u8981\u56e0\u306b\u5f71\u97ff\u3055\u308c\u3084\u3059\u3044\u3068\u6307\u6458\u3059\u308b\u3002TATSUKI\u306f\u3001\u56de\u9867\u7684\u8a55\u4fa1\u30d7\u30ed\u30bb\u30b9\u3092\u5236\u5ea6\u5316\u3057\u3001\u6709\u6a29\u8005\u306e\u4e3b\u89b3\u7684\u8a55\u4fa1\u3092'
+    '\u4e8b\u524d\u5ba3\u8a00\u3055\u308c\u305f\u516c\u7d04\u306e\u69cb\u9020\u5316\u3055\u308c\u305f\u7b2c\u4e09\u8005\u8a55\u4fa1\u306b\u7f6e\u304d\u63db\u3048\u308b\u3053\u3068\u3067\u3001\u3053\u308c\u3089\u306e\u9650\u754c\u306b\u5bfe\u51e6\u3059\u308b\u3002'
 )
-doc.add_paragraph(
-    '選挙的説明責任の形式モデル、特にBarro（1973）とFerejohn（1986）は、有権者-政治家関係を'
-    'プリンシパル・エージェント問題として定式化する。これらのモデルでは、有権者は閾値戦略を用いる：'
-    '実績が留保効用を超えれば再選、そうでなければ除去。Besley（2006）はこの枠組みを拡張し、'
-    '選抜効果と規律付け効果を区別する。TATSUKIはこれらモデルの二値的制裁を連続的な信任係数'
-    'τ = ω(S)に一般化し、公約実現のためのより精緻なインセンティブを提供する。'
-)
-
-doc.add_heading('2.2 メカニズムデザインと社会的選択理論', level=2)
-doc.add_paragraph(
-    'Arrowの不可能性定理（Arrow, 1951）およびGibbard-Satterthwaiteの定理（Gibbard, 1973; '
-    'Satterthwaite, 1975）は、順序付け型投票制度の根本的限界を確立している。Dasgupta and Maskin'
-    '（2020）は多数決の下での耐戦略性について最近の結果を提示している。TATSUKIは選好集約規則'
-    'そのものを修正するのではなく、集約ステップの上流で動作する動的信任加重という追加次元を導入する。'
-    'これによりTATSUKIは古典的不可能性結果の直接的適用範囲外に位置するが、公約宣言段階および評価'
-    '段階における新たな戦略的操作の問題を提起する。'
-)
-doc.add_paragraph(
-    'Acemoglu, Golosov, and Tsyvinski（2008）はメカニズムの政治経済学を研究し、政治家に対する'
-    '動的インセンティブ供与を分析している。彼らの枠組みは本論文の異時点間インセンティブの扱いに'
-    '示唆を与えるが、TATSUKIはインセンティブ構造を公知の影響関数ω(S)を通じて透明かつパラメータ化'
-    'されたものにする点で異なる。'
+add_text_para(
+    '\u9078\u6319\u7684\u8aac\u660e\u8cac\u4efb\u306e\u5f62\u5f0f\u30e2\u30c7\u30eb\u3001\u7279\u306bBarro [14]\u3068Ferejohn [15]\u306f\u3001\u6709\u6a29\u8005-\u653f\u6cbb\u5bb6\u95a2\u4fc2\u3092'
+    '\u30d7\u30ea\u30f3\u30b7\u30d1\u30eb\u30fb\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u554f\u984c\u3068\u3057\u3066\u5b9a\u5f0f\u5316\u3059\u308b\u3002\u3053\u308c\u3089\u306e\u30e2\u30c7\u30eb\u3067\u306f\u3001\u6709\u6a29\u8005\u306f\u95be\u5024\u6226\u7565\u3092\u7528\u3044\u308b\uff1a'
+    '\u5b9f\u7e3e\u304c\u7559\u4fdd\u52b9\u7528\u3092\u8d85\u3048\u308c\u3070\u518d\u9078\u3001\u305d\u3046\u3067\u306a\u3051\u308c\u3070\u9664\u53bb\u3002Besley [16]\u306f\u3053\u306e\u679a\u7d44\u307f\u3092\u62e1\u5f35\u3057\u3001'
+    '\u9078\u62d4\u52b9\u679c\u3068\u898f\u5f8b\u4ed8\u3051\u52b9\u679c\u3092\u533a\u5225\u3059\u308b\u3002TATSUKI\u306f\u3053\u308c\u3089\u30e2\u30c7\u30eb\u306e\u4e8c\u5024\u7684\u5236\u88c1\u3092\u9023\u7d9a\u7684\u306a\u4fe1\u4efb\u4fc2\u6570'
+    '\u03c4 = \u03c9(S)\u306b\u4e00\u822c\u5316\u3057\u3001\u516c\u7d04\u5b9f\u73fe\u306e\u305f\u3081\u306e\u3088\u308a\u7cbe\u7dfb\u306a\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u3092\u63d0\u4f9b\u3059\u308b\u3002'
 )
 
-doc.add_heading('2.3 代替的選挙制度改革', level=2)
-doc.add_paragraph(
-    'Quadratic Voting（Lalley & Weyl, 2018; Posner & Weyl, 2018）は、票を二次コストで購入する'
-    'ことで選好強度を表現可能にし、一定条件下で近似的な厚生最適を達成する。QVが投票行為そのものを'
-    '修正するのに対し、TATSUKIは過去の投票結果の帰結を修正する。両メカニズムは形式的に補完的であり、'
-    '原理的には組み合わせが可能である。'
+doc.add_heading('2.2 \u30e1\u30ab\u30cb\u30ba\u30e0\u30c7\u30b6\u30a4\u30f3\u3068\u793e\u4f1a\u7684\u9078\u629e\u7406\u8ad6', level=2)
+add_text_para(
+    'Arrow\u306e\u4e0d\u53ef\u80fd\u6027\u5b9a\u7406 [17]\u304a\u3088\u3073Gibbard-Satterthwaite\u306e\u5b9a\u7406 [18, 19]\u306f\u3001\u9806\u5e8f\u4ed8\u3051\u578b\u6295\u7968\u5236\u5ea6\u306e\u6839\u672c\u7684\u9650\u754c\u3092\u78ba\u7acb\u3057\u3066\u3044\u308b\u3002Dasgupta and Maskin [20]\u306f\u591a\u6570\u6c7a\u306e\u4e0b\u3067\u306e\u8010\u6226\u7565\u6027\u306b\u3064\u3044\u3066\u6700\u8fd1\u306e\u7d50\u679c\u3092\u63d0\u793a\u3057\u3066\u3044\u308b\u3002TATSUKI\u306f\u9078\u597d\u96c6\u7d04\u898f\u5247'
+    '\u305d\u306e\u3082\u306e\u3092\u4fee\u6b63\u3059\u308b\u306e\u3067\u306f\u306a\u304f\u3001\u96c6\u7d04\u30b9\u30c6\u30c3\u30d7\u306e\u4e0a\u6d41\u3067\u52d5\u4f5c\u3059\u308b\u52d5\u7684\u4fe1\u4efb\u52a0\u91cd\u3068\u3044\u3046\u8ffd\u52a0\u6b21\u5143\u3092\u5c0e\u5165\u3059\u308b\u3002'
+    '\u3053\u308c\u306b\u3088\u308aTATSUKI\u306f\u53e4\u5178\u7684\u4e0d\u53ef\u80fd\u6027\u7d50\u679c\u306e\u76f4\u63a5\u7684\u9069\u7528\u7bc4\u56f2\u5916\u306b\u4f4d\u7f6e\u3059\u308b\u304c\u3001\u516c\u7d04\u5ba3\u8a00\u6bb5\u968e\u304a\u3088\u3073\u8a55\u4fa1'
+    '\u6bb5\u968e\u306b\u304a\u3051\u308b\u65b0\u305f\u306a\u6226\u7565\u7684\u64cd\u4f5c\u306e\u554f\u984c\u3092\u63d0\u8d77\u3059\u308b\u3002'
 )
-doc.add_paragraph(
-    'Liquid Democracy（Brill et al., 2022; Christoff & Grossi, 2017; Kahng et al., 2021）は'
-    '投票権の推移的委任を可能にし、直接民主制と代議制民主制の境界を融解させる。対照的に、TATSUKIは'
-    '代議制構造を維持しつつ、その中での説明責任を強化する。Futarchy（Hanson, 2013）は予測市場に'
-    '政策決定を委任し、価値と信念を分離する。TATSUKIは異なる分離を実装する：選挙前の公約と選挙後の'
-    '評価の分離である。'
-)
-
-doc.add_heading('2.4 選挙公約実現度', level=2)
-doc.add_paragraph(
-    'Thomson et al.（2017）は公約実現度に関する最も包括的な比較研究を行い、12か国57選挙の20,000件'
-    '超の公約を分析した。与党は公約の過半数を実現しており、単独政権が連立政権より高い実現率を示す。'
-    'Naurin, Royed, and Thomson（2020）は国際的な変動をさらに文書化している。Bytzek et al.（2024）は'
-    '公約実現の認知が政治的信頼に有意に影響することを示している。これらの知見は、公約実現度を体系的に'
-    '計測し制度的入力として使用できるというTATSUKIの核心的前提に対する経験的基盤を提供する。'
+add_text_para(
+    'Acemoglu, Golosov, and Tsyvinski [21]\u306f\u30e1\u30ab\u30cb\u30ba\u30e0\u306e\u653f\u6cbb\u7d4c\u6e08\u5b66\u3092\u7814\u7a76\u3057\u3001\u653f\u6cbb\u5bb6\u306b\u5bfe\u3059\u308b'
+    '\u52d5\u7684\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u4f9b\u4e0e\u3092\u5206\u6790\u3057\u3066\u3044\u308b\u3002\u5f7c\u3089\u306e\u679a\u7d44\u307f\u306f\u672c\u8ad6\u6587\u306e\u7570\u6642\u70b9\u9593\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u306e\u6271\u3044\u306b'
+    '\u793a\u5506\u3092\u4e0e\u3048\u308b\u304c\u3001TATSUKI\u306f\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u69cb\u9020\u3092\u516c\u77e5\u306e\u5f71\u97ff\u95a2\u6570\u03c9(S)\u3092\u901a\u3058\u3066\u900f\u660e\u304b\u3064\u30d1\u30e9\u30e1\u30fc\u30bf\u5316'
+    '\u3055\u308c\u305f\u3082\u306e\u306b\u3059\u308b\u70b9\u3067\u7570\u306a\u308b\u3002'
 )
 
-doc.add_heading('2.5 選挙システムのエージェントベースモデル', level=2)
-doc.add_paragraph(
-    'ABMは選挙動態に広く適用されてきた。Laver（2011）は有権者分布に適応する戦略的エージェントによる'
-    '政党間競争をモデル化した。Mitra（2022）は社会的・地理的影響を取り入れた選挙区制選挙を'
-    'シミュレートした。Tomlinson et al.（2024）はレプリケーター動学を用いて候補者の政策位置取りを'
-    '研究し、単純な行動ヒューリスティクスからでも複雑な進化動態が生じることを発見した。'
-    '本ABMはこの伝統の上に、候補者戦略が進化する制度的文脈としてTATSUKIメカニズムを導入する。'
+doc.add_heading('2.3 \u4ee3\u66ff\u7684\u9078\u6319\u5236\u5ea6\u6539\u9769', level=2)
+add_text_para(
+    'Quadratic Voting [5, 6]\u306f\u3001\u7968\u3092\u4e8c\u6b21\u30b3\u30b9\u30c8\u3067\u8cfc\u5165\u3059\u308b'
+    '\u3053\u3068\u3067\u9078\u597d\u5f37\u5ea6\u3092\u8868\u73fe\u53ef\u80fd\u306b\u3057\u3001\u4e00\u5b9a\u6761\u4ef6\u4e0b\u3067\u8fd1\u4f3c\u7684\u306a\u539a\u751f\u6700\u9069\u3092\u9054\u6210\u3059\u308b\u3002QV\u304c\u6295\u7968\u884c\u70ba\u305d\u306e\u3082\u306e\u3092'
+    '\u4fee\u6b63\u3059\u308b\u306e\u306b\u5bfe\u3057\u3001TATSUKI\u306f\u904e\u53bb\u306e\u6295\u7968\u7d50\u679c\u306e\u5e30\u7d50\u3092\u4fee\u6b63\u3059\u308b\u3002\u4e21\u30e1\u30ab\u30cb\u30ba\u30e0\u306f\u5f62\u5f0f\u7684\u306b\u88dc\u5b8c\u7684\u3067\u3042\u308a\u3001'
+    '\u539f\u7406\u7684\u306b\u306f\u7d44\u307f\u5408\u308f\u305b\u304c\u53ef\u80fd\u3067\u3042\u308b\u3002'
+)
+add_text_para(
+    'Liquid Democracy [7, 22, 8]\u306f'
+    '\u6295\u7968\u6a29\u306e\u63a8\u79fb\u7684\u59d4\u4efb\u3092\u53ef\u80fd\u306b\u3057\u3001\u76f4\u63a5\u6c11\u4e3b\u5236\u3068\u4ee3\u8b70\u5236\u6c11\u4e3b\u5236\u306e\u5883\u754c\u3092\u878d\u89e3\u3055\u305b\u308b\u3002\u5bfe\u7167\u7684\u306b\u3001TATSUKI\u306f'
+    '\u4ee3\u8b70\u5236\u69cb\u9020\u3092\u7dad\u6301\u3057\u3064\u3064\u3001\u305d\u306e\u4e2d\u3067\u306e\u8aac\u660e\u8cac\u4efb\u3092\u5f37\u5316\u3059\u308b\u3002Futarchy [9]\u306f\u4e88\u6e2c\u5e02\u5834\u306b'
+    '\u653f\u7b56\u6c7a\u5b9a\u3092\u59d4\u4efb\u3057\u3001\u4fa1\u5024\u3068\u4fe1\u5ff5\u3092\u5206\u96e2\u3059\u308b\u3002TATSUKI\u306f\u7570\u306a\u308b\u5206\u96e2\u3092\u5b9f\u88c5\u3059\u308b\uff1a\u9078\u6319\u524d\u306e\u516c\u7d04\u3068\u9078\u6319\u5f8c\u306e'
+    '\u8a55\u4fa1\u306e\u5206\u96e2\u3067\u3042\u308b\u3002'
+)
+
+doc.add_heading('2.4 \u9078\u6319\u516c\u7d04\u5b9f\u73fe\u5ea6', level=2)
+add_text_para(
+    'Thomson et al. [10]\u306f\u6700\u3082\u5305\u62ec\u7684\u306a\u516c\u7d04\u5b9f\u73fe\u5ea6\u306e\u6bd4\u8f03\u7814\u7a76\u3092\u884c\u3044\u300112\u304b\u56fd57\u9078\u6319\u306e20,000\u4ef6\u8d85\u306e'
+    '\u516c\u7d04\u3092\u5206\u6790\u3057\u3066\u3044\u308b\u3002Naurin, Royed, and Thomson [23]\u306f\u56fd\u969b\u7684\u5909\u52d5\u3092\u3055\u3089\u306b'
+    '\u6587\u66f8\u5316\u3057\u3066\u3044\u308b\u3002Bytzek et al. [24]\u306f\u516c\u7d04\u5b9f\u73fe\u5ea6\u306e\u8a8d\u77e5\u304c\u653f\u6cbb\u7684\u4fe1\u983c\u306b\u6709\u610f\u306b\u5f71\u97ff\u3059\u308b\u3053\u3068\u3092'
+    '\u5b9f\u8a3c\u3057\u3066\u3044\u308b\u3002'
+)
+
+doc.add_heading('2.5 \u9078\u6319\u30b7\u30b9\u30c6\u30e0\u306e\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30e2\u30c7\u30eb', level=2)
+add_text_para(
+    'ABM\u306f\u9078\u6319\u52d5\u614b\u306b\u5e83\u304f\u9069\u7528\u3055\u308c\u3066\u304d\u305f\u3002Laver [25]\u306f\u6709\u6a29\u8005\u5206\u5e03\u306b\u9069\u5fdc\u3059\u308b\u6226\u7565\u7684\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u3067'
+    '\u653f\u515a\u7af6\u4e89\u3092\u30e2\u30c7\u30eb\u5316\u3057\u3066\u3044\u308b\u3002Mitra [26]\u306f\u793e\u4f1a\u7684\u30fb\u5730\u7406\u7684\u5f71\u97ff\u3092\u7d44\u307f\u8fbc\u3093\u3060\u9078\u6319\u533a\u30d9\u30fc\u30b9'
+    '\u306e\u9078\u6319\u3092\u30b7\u30df\u30e5\u30ec\u30fc\u30c8\u3057\u3066\u3044\u308b\u3002Tomlinson et al. [27]\u306f\u8907\u88fd\u5b50\u52d5\u614b\u3092\u7528\u3044\u3066\u5019\u88dc\u8005\u306e\u4f4d\u7f6e\u3065\u3051\u3092'
+    '\u7814\u7a76\u3057\u3066\u3044\u308b\u3002'
 )
 
 # Figure 6: Positioning
 add_figure(f'{FIGS}/fig6_positioning.png',
-           '図1. 既存の選挙制度改革提案に対するTATSUKIの理論的位置づけ。'
-           '横軸は一人一票からの乖離度、縦軸は時間的指向（回顧的〜展望的）を表す。',
+           '\u56f31. TATSUKI\u306e\u65e2\u5b58\u306e\u9078\u6319\u5236\u5ea6\u6539\u9769\u63d0\u6848\u306b\u5bfe\u3059\u308b\u7406\u8ad6\u7684\u4f4d\u7f6e\u3065\u3051\u3002'
+           '\u6a2a\u8ef8\u306f\u4e00\u4eba\u4e00\u7968\u304b\u3089\u306e\u4e56\u96e2\u3001\u7e26\u8ef8\u306f\u6642\u9593\u7684\u5fd7\u5411\uff08\u56de\u9867\u7684\uff5e\u524d\u5411\u7684\uff09\u3092\u8868\u3059\u3002',
            width=5.5)
 
 # ══════════════════════════════════════════════
 # 3. TATSUKIモデル
 # ══════════════════════════════════════════════
-doc.add_heading('3. TATSUKIモデル（The TATSUKI Model）', level=1)
+doc.add_heading('3. TATSUKI\u30e2\u30c7\u30eb\uff08The TATSUKI Model\uff09', level=1)
 
-doc.add_heading('3.1 モデル概要', level=2)
-doc.add_paragraph(
-    't = 1, 2, 3, … で添字付けされた一連の選挙を考え、各選挙の後に固定長の任期が続く。'
-    '各選挙において、候補者集合 C_t = {c₁, c₂, …, c_m} が公職を争い、有権者集合 '
-    'V = {v₁, v₂, …, v_n} が投票する。TATSUKIメカニズムは標準的な選挙プロセスに以下の3つの'
-    '追加要素を付加する：(i) 公約宣言、(ii) 実現度評価、(iii) 信任係数更新。'
+doc.add_heading('3.1 \u30e2\u30c7\u30eb\u6982\u8981', level=2)
+add_text_para(
+    't = 1, 2, 3, \u2026\u3067\u7d22\u5f15\u3055\u308c\u308b\u4e00\u9023\u306e\u9078\u6319\u3092\u8003\u3048\u308b\u3002\u5404\u9078\u6319\u3067\u5019\u88dc\u8005\u96c6\u5408C\u209c = {c\u2081, c\u2082, \u2026, c\u2098}\u304c'
+    '\u7af6\u5408\u3057\u3001\u6709\u6a29\u8005\u96c6\u5408V = {v\u2081, v\u2082, \u2026, v\u2099}\u304c\u6295\u7968\u3059\u308b\u3002TATSUKI\u30e1\u30ab\u30cb\u30ba\u30e0\u306f\u6a19\u6e96\u7684\u306a\u9078\u6319\u30d7\u30ed\u30bb\u30b9\u306b'
+    '3\u3064\u306e\u8ffd\u52a0\u8981\u7d20\u3092\u5c0e\u5165\u3059\u308b\uff1a(i)\u516c\u7d04\u5ba3\u8a00\u3001(ii)\u5b9f\u73fe\u5ea6\u8a55\u4fa1\u3001(iii)\u4fe1\u4efb\u4fc2\u6570\u66f4\u65b0\u3002'
 )
 
 # Figure 1: Conceptual overview
 add_figure(f'{FIGS}/fig1_conceptual_overview.png',
-           '図2. TATSUKIメカニズムの概念的概要。選挙サイクルの6つのフェーズを示す：'
-           '公約宣言→選挙→任期→実現度評価→説明責任得点算出→信任係数更新。',
+           '\u56f32. TATSUKI\u30e1\u30ab\u30cb\u30ba\u30e0\u306e\u6982\u5ff5\u56f3\u30026\u3064\u306e\u30d5\u30a7\u30fc\u30ba\uff1a\u516c\u7d04\u5ba3\u8a00\u3001\u9078\u6319\u3001\u4efb\u671f\u3001'
+           '\u5b9f\u73fe\u5ea6\u8a55\u4fa1\u3001\u8aac\u660e\u8cac\u4efb\u30b9\u30b3\u30a2\u30ea\u30f3\u30b0\u3001\u4fe1\u4efb\u4fc2\u6570\u66f4\u65b0\u3002',
            width=5.5)
 
-doc.add_heading('3.2 公約宣言', level=2)
-doc.add_paragraph(
-    '各選挙サイクルtの開始時に、各候補者 c ∈ C_t は公約ポートフォリオ '
-    'P_c = {(p₁, w₁), (p₂, w₂), …, (p_k, w_k)} を宣言する。ここで p_j は具体的な政策公約、'
-    'w_j ∈ (0, 1] はその宣言された重要度であり、制約条件 Σ_j w_j = 1 に従う。重み宣言は公開され、'
-    '一度提出されると撤回不能であり、候補者の優先順位に関する拘束的シグナルとして機能する。'
-    '明示的な重み付けを要求することで、TATSUKIは曖昧な選挙レトリックを構造化された評価可能な'
-    'コミットメントに変換する。'
+doc.add_heading('3.2 \u516c\u7d04\u5ba3\u8a00', level=2)
+add_text_para(
+    '\u5404\u9078\u6319\u30b5\u30a4\u30af\u30ebt\u306e\u958b\u59cb\u6642\u306b\u3001\u5404\u5019\u88dc\u8005c\u306f\u516c\u7d04\u30dd\u30fc\u30c8\u30d5\u30a9\u30ea\u30aa'
+    'P_c = {(p\u2081, w\u2081), (p\u2082, w\u2082), \u2026, (p\u2096, w\u2096)}\u3092\u5ba3\u8a00\u3059\u308b\u3002'
+    '\u3053\u3053\u3067p\u2c7c\u306f\u7279\u5b9a\u306e\u653f\u7b56\u30b3\u30df\u30c3\u30c8\u30e1\u30f3\u30c8\u3001w\u2c7c \u2208 (0, 1]\u306f\u305d\u306e\u5ba3\u8a00\u3055\u308c\u305f\u91cd\u8981\u5ea6\u306e\u91cd\u307f\u3067\u3042\u308a\u3001'
+    '\u5236\u7d04\u6761\u4ef6\u03a3\u2c7c w\u2c7c = 1\u306b\u5f93\u3046\u3002\u91cd\u307f\u306e\u5ba3\u8a00\u306f\u516c\u958b\u3055\u308c\u3001\u63d0\u51fa\u5f8c\u306f\u64a4\u56de\u4e0d\u53ef\u3067\u3042\u308b\u3002'
 )
 
-doc.add_heading('3.3 実現度評価', level=2)
-doc.add_paragraph(
-    '各任期の終了時に、独立した評価機関が各公約 p_j の実現度 f_j ∈ [0, 1] を査定する。'
-    '評価は3つの要素を加重混合する：(O) 公開データから導出される客観指標、(P) 市民調査による'
-    '公衆評価、(E) 専門家パネル判断。公約 j の合成実現度スコアは：'
-)
-add_para('f_j = α₀ · O_j + α₁ · P_j + α₂ · E_j',
-         align=WD_ALIGN_PARAGRAPH.CENTER, italic=True)
-doc.add_paragraph(
-    'ここで α₀ + α₁ + α₂ = 1 は評価ウェイトである。この多源的アプローチは、単一の評価チャネルの'
-    'ゲーミングリスクを軽減する（グッドハートの法則への対策）。任期中は指数平滑化による中間評価が'
-    '実施され、継続的なフィードバック信号を提供する。'
+doc.add_heading('3.3 \u5b9f\u73fe\u5ea6\u8a55\u4fa1', level=2)
+add_text_para(
+    '\u5404\u4efb\u671f\u306e\u7d42\u4e86\u6642\u306b\u3001\u72ec\u7acb\u3057\u305f\u8a55\u4fa1\u6a5f\u95a2\u304c\u5404\u516c\u7d04p\u2c7c\u306e\u5b9f\u73fe\u5ea6f\u2c7c \u2208 [0, 1]\u3092\u67fb\u5b9a\u3059\u308b\u3002'
+    '\u8a55\u4fa1\u306f3\u3064\u306e\u8981\u7d20\u3092\u91cd\u307f\u4ed8\u3051\u6df7\u5408\u3059\u308b\uff1a(O)\u516c\u958b\u30c7\u30fc\u30bf\u306b\u57fa\u3065\u304f\u5ba2\u89b3\u7684\u6307\u6a19\u3001(P)\u5e02\u6c11\u8abf\u67fb\u306b\u3088\u308b\u516c\u7684\u8a55\u4fa1\u3001'
+    '(E)\u5c02\u9580\u5bb6\u30d1\u30cd\u30eb\u306b\u3088\u308b\u5224\u5b9a\u3002'
 )
 
-doc.add_heading('3.4 説明責任得点', level=2)
-doc.add_paragraph(
-    '任期tの終了時における候補者cの説明責任得点は、実現度スコアの加重合計として算出される：'
-)
-add_para('S_c^(t) = Σ_j  w_j · f_j  ∈ [0, 1]',
-         align=WD_ALIGN_PARAGRAPH.CENTER, italic=True)
-doc.add_paragraph(
-    'スコア S_c^(t) は、候補者cが宣言された優先順位に対してどの程度実行したかを表す。'
-    'スコア1は宣言された重要度で加重した全公約の完全実現を意味し、0は全面的失敗を意味する。'
+doc.add_heading('3.4 \u8aac\u660e\u8cac\u4efb\u5f97\u70b9', level=2)
+add_text_para(
+    '\u5019\u88dc\u8005c\u306e\u4efb\u671ft\u306b\u304a\u3051\u308b\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u306f\u3001\u5b9f\u73fe\u5ea6\u30b9\u30b3\u30a2\u306e\u52a0\u91cd\u548c\u3068\u3057\u3066\u7b97\u51fa\u3055\u308c\u308b\uff1a'
+    'S_c^(t) = \u03a3\u2c7c w\u2c7c \u00b7 f\u2c7c \u2208 [0, 1]\u3002'
 )
 
-doc.add_heading('3.5 信任係数と影響関数', level=2)
-doc.add_paragraph(
-    '説明責任得点は影響関数 ω: [0, 1] → [τ_min, τ_max] を通じて信任係数に変換され、'
-    'τ_c^(t+1) = ω(S_c^(t)) を得る。以下の影響関数族を分析する：'
-)
-
-funcs_ja = [
-    ('線形：', 'ω(S) = τ_min + (τ_max − τ_min) · S'),
-    ('凹関数：', 'ω(S) = τ_min + (τ_max − τ_min) · S^(1/γ),  γ > 1'),
-    ('凸関数：', 'ω(S) = τ_min + (τ_max − τ_min) · S^γ,  γ > 1'),
-    ('シグモイド：', 'ω(S) = τ_min + (τ_max − τ_min) / (1 + exp(−k(S − 0.5)))'),
-    ('ステップ：', 'ω(S) = τ_max  (S ≥ θ の場合),  τ_min  (その他)'),
-]
-for label, eq in funcs_ja:
-    p = doc.add_paragraph()
-    r1 = p.add_run(f'  {label} ')
-    r1.bold = True
-    r2 = p.add_run(eq)
-    r2.italic = True
-
-doc.add_paragraph(
-    '信任係数は候補者の有効得票数を決定する。次回選挙で候補者cが n_c の生票を得た場合、'
-    '有効得票数は V_eff(c) = τ_c · n_c となる。重要なのは、信任係数は個々の有権者ではなく'
-    '候補者に付随するため、各有権者は額面価値が等しい一票を投じるという原則が維持される点である。'
-    '過去の履歴を持たない候補者（新人や過去に当選しなかった者）の信任係数は中立的基準値 '
-    'τ₀ = 1.0 で初期化される。'
+doc.add_heading('3.5 \u4fe1\u4efb\u4fc2\u6570\u3068\u5f71\u97ff\u95a2\u6570', level=2)
+add_text_para(
+    '\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u306f\u5f71\u97ff\u95a2\u6570\u03c9: [0, 1] \u2192 [\u03c4_min, \u03c4_max]\u3092\u901a\u3058\u3066\u4fe1\u4efb\u4fc2\u6570\u306b\u5909\u63db\u3055\u308c\u308b\uff1a'
+    '\u03c4_c^(t+1) = \u03c9(S_c^(t))\u3002\u4ee5\u4e0b\u306e\u5f71\u97ff\u95a2\u6570\u65cf\u3092\u5206\u6790\u3059\u308b\uff1a'
+    '\u7dda\u5f62\u3001\u51f9\u3001\u51f8\u3001\u30b7\u30b0\u30e2\u30a4\u30c9\u3001\u30b9\u30c6\u30c3\u30d7\u3002'
 )
 
 # Figure 2: Influence functions
 add_figure(f'{FIGS}/fig2_influence_functions.png',
-           '図3. 影響関数ω(S)の関数族。(a) 説明責任得点Sから信任係数τへの異なる関数形。'
-           '(b) 凹関数仕様におけるパラメータ範囲 [τ_min, τ_max] に対する感度。',
+           '\u56f33. \u5f71\u97ff\u95a2\u6570\u65cf\u03c9(S)\u3002(a)\u8aac\u660e\u8cac\u4efb\u5f97\u70b9S\u304b\u3089\u4fe1\u4efb\u4fc2\u6570\u03c4\u3078\u306e\u5404\u95a2\u6570\u5f62\u3002'
+           '(b)\u51f9\u4ed5\u69d8\u306b\u304a\u3051\u308b\u30d1\u30e9\u30e1\u30fc\u30bf\u7bc4\u56f2[\u03c4_min, \u03c4_max]\u3078\u306e\u611f\u5ea6\u3002',
            width=5.5)
 
-doc.add_heading('3.6 落選候補の扱い', level=2)
-doc.add_paragraph(
-    '非自明な設計上の選択として、選挙に立候補したが落選した候補者の扱いがある。落選候補は'
-    '就任しないため、公約実現を観察することができない。本論文では中立リセット規則を採用する：'
-    '落選候補は将来の選挙に信任修正を持ち越さない（τ = 1.0）。これにより、「信任の不在」と'
-    '「信任の失敗」を同一視する概念的誤りを回避する。この区別は規範的にも戦略的にも重要であり、'
-    '第6節で議論する。'
+doc.add_heading('3.6 \u843d\u9078\u5019\u88dc\u8005\u306e\u6271\u3044', level=2)
+add_text_para(
+    '\u843d\u9078\u5019\u88dc\u8005\u306f\u5c31\u4efb\u3057\u306a\u3044\u305f\u3081\u516c\u7d04\u5b9f\u73fe\u3092\u89b3\u5bdf\u3067\u304d\u306a\u3044\u3002\u4e2d\u7acb\u7684\u30ea\u30bb\u30c3\u30c8\u898f\u5247\u3092\u63a1\u7528\u3059\u308b\uff1a'
+    '\u843d\u9078\u5019\u88dc\u8005\u306f\u4fe1\u4efb\u4fee\u6b63\u3092\u6301\u3061\u8d8a\u3055\u306a\u3044\uff08\u03c4 = 1.0\uff09\u3002'
 )
 
-doc.add_heading('3.7 外的ショック調整', level=2)
-doc.add_paragraph(
-    '外生的事象（自然災害、世界経済ショック、パンデミック）が候補者の努力とは無関係に公約実現'
-    '可能性に影響する懸念に対処するため、TATSUKIはオプションのショック調整係数 δ ∈ [0, 1] を'
-    '組み込む。これにより説明責任得点を S\'_c = δ · S_c + (1 − δ) · S_baseline とスケーリングする。'
-    'ここで S_baseline は通常条件下の規範的ベンチマークを表す。δの決定は同じ評価機関または'
-    '別の制度的メカニズムに委任できる。'
+doc.add_heading('3.7 \u5916\u7684\u30b7\u30e7\u30c3\u30af\u8abf\u6574', level=2)
+add_text_para(
+    '\u5916\u751f\u7684\u4e8b\u8c61\uff08\u81ea\u7136\u707d\u5bb3\u3001\u4e16\u754c\u7d4c\u6e08\u30b7\u30e7\u30c3\u30af\u3001\u30d1\u30f3\u30c7\u30df\u30c3\u30af\uff09\u304c\u5019\u88dc\u8005\u306e\u52aa\u529b\u3068\u72ec\u7acb\u306b\u516c\u7d04\u5b9f\u73fe\u53ef\u80fd\u6027\u306b'
+    '\u5f71\u97ff\u3092\u4e0e\u3048\u308b\u61f8\u5ff5\u306b\u5bfe\u51e6\u3059\u308b\u305f\u3081\u3001TATSUKI\u306f\u30aa\u30d7\u30b7\u30e7\u30ca\u30eb\u306a\u30b7\u30e7\u30c3\u30af\u8abf\u6574\u4fc2\u6570\u03b4 \u2208 [0, 1]\u3092\u7d44\u307f\u8fbc\u3080\u3002'
 )
 
 # ══════════════════════════════════════════════
 # 4. ABM記述（ODDプロトコル）
 # ══════════════════════════════════════════════
-doc.add_heading('4. エージェントベースモデル記述（ODDプロトコル）', level=1)
+doc.add_heading('4. \u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30e2\u30c7\u30eb\u8a18\u8ff0\uff08ODD\u30d7\u30ed\u30c8\u30b3\u30eb\uff09', level=1)
 
-doc.add_heading('4.1 目的とパターン（Purpose and Patterns）', level=2)
-doc.add_paragraph(
-    'モデルの目的は、複数の選挙サイクルにわたるTATSUKIの動的特性を以下の点に特に注意して調査する'
-    'ことである：(i) TATSUKIが標準選挙と比較して均衡説明責任水準を引き上げるか、(ii) TATSUKI下の'
-    '進化的淘汰により、どの候補者タイプ（誠実・ポピュリスト・戦略的欺瞞）が有利になるか、'
-    '(iii) どの影響関数仕様がインセンティブ強度と操作耐性の最適なバランスを提供するか、'
-    '(iv) システムが敵対的攻略戦略に対してどの程度ロバストか。モデルは理論分析で観察される漸進的な'
-    '説明責任改善パターンを再現し、システムが失敗する条件を特定することを意図している。'
+doc.add_heading('4.1 \u76ee\u7684\u3068\u30d1\u30bf\u30fc\u30f3', level=2)
+add_text_para(
+    '\u30e2\u30c7\u30eb\u306e\u76ee\u7684\u306f\u3001\u8907\u6570\u306e\u9078\u6319\u30b5\u30a4\u30af\u30eb\u306b\u308f\u305f\u308bTATSUKI\u306e\u52d5\u7684\u7279\u6027\u3092\u8abf\u67fb\u3059\u308b\u3053\u3068\u3067\u3042\u308a\u3001\u7279\u306b\u4ee5\u4e0b\u306b\u6ce8\u76ee\u3059\u308b\uff1a'
+    '(i)\u6a19\u6e96\u9078\u6319\u3068\u6bd4\u8f03\u3057\u3066\u5747\u8861\u8aac\u660e\u8cac\u4efb\u6c34\u6e96\u304c\u5411\u4e0a\u3059\u308b\u304b\u3001(ii)\u3069\u306e\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u304c\u9032\u5316\u7684\u6dd8\u6c70\u3067\u6709\u5229\u3068\u306a\u308b\u304b\u3001'
+    '(iii)\u3069\u306e\u5f71\u97ff\u95a2\u6570\u304c\u6700\u826f\u306e\u30d0\u30e9\u30f3\u30b9\u3092\u63d0\u4f9b\u3059\u308b\u304b\u3001(iv)\u6575\u5bfe\u7684\u653b\u7565\u306b\u5bfe\u3059\u308b\u30ed\u30d0\u30b9\u30c8\u6027\u3002'
 )
 
-doc.add_heading('4.2 実体・状態変数・スケール（Entities, State Variables, and Scales）', level=2)
-doc.add_paragraph(
-    'モデルは2種類の実体を含む：'
-)
-doc.add_paragraph(
-    '有権者（ベースラインでn = 500）：各有権者 v_i は、政策選好ベクトル θ_i ∈ ℝ³（3つの政策次元'
-    'における立場）、意思決定の確率的ノイズを支配するノイズパラメータ σ_i、候補者選択時に回顧的'
-    '評価に置く重みを表すメモリパラメータ μ_i により特徴付けられる。'
-)
-doc.add_paragraph(
-    '候補者（ベースラインでm = 5）：各候補者 c_j は、真の政策位置 π_j ∈ ℝ³、候補者タイプ '
-    'T_j ∈ {誠実, ポピュリスト, 戦略的}、公約ポートフォリオ P_j、信任係数 τ_j、累積説明責任'
-    '履歴 H_j により特徴付けられる。'
-)
-doc.add_paragraph(
-    '時間スケールは離散的な選挙サイクル（t = 1, …, T_max）から成り、各サイクルは1任期を表す。'
-    '空間次元は抽象的であり、有権者と候補者は地理的空間ではなく政策空間を通じて相互作用する。'
+doc.add_heading('4.2 \u30a8\u30f3\u30c6\u30a3\u30c6\u30a3\u3001\u72b6\u614b\u5909\u6570\u3001\u30b9\u30b1\u30fc\u30eb', level=2)
+add_text_para(
+    '\u30e2\u30c7\u30eb\u306b\u306f2\u3064\u306e\u30a8\u30f3\u30c6\u30a3\u30c6\u30a3\u30bf\u30a4\u30d7\u304c\u542b\u307e\u308c\u308b\uff1a'
+    '\u6709\u6a29\u8005\uff08\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3n = 500\uff09\u304a\u3088\u3073\u5019\u88dc\u8005\uff08\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3m = 5\uff09\u3002'
+    '\u6709\u6a29\u8005\u306f\u653f\u7b56\u9078\u597d\u30d9\u30af\u30c8\u30eb\u03b8_i \u2208 \u211d\u00b3\u3001\u30ce\u30a4\u30ba\u30d1\u30e9\u30e1\u30fc\u30bf\u03c3_i\u3001\u30e1\u30e2\u30ea\u30d1\u30e9\u30e1\u30fc\u30bf\u03bc_i\u3067\u7279\u5fb4\u3065\u3051\u3089\u308c\u308b\u3002'
+    '\u5019\u88dc\u8005\u306f\u771f\u306e\u653f\u7b56\u4f4d\u7f6e\u03c0_j\u3001\u30bf\u30a4\u30d7T_j\u3001\u516c\u7d04\u30dd\u30fc\u30c8\u30d5\u30a9\u30ea\u30aaP_j\u3001\u4fe1\u4efb\u4fc2\u6570\u03c4_j\u3067\u7279\u5fb4\u3065\u3051\u3089\u308c\u308b\u3002'
 )
 
-doc.add_heading('4.3 プロセス概要とスケジューリング', level=2)
-doc.add_paragraph(
-    '各選挙サイクルは固定順序で6つのフェーズを経る：'
-    '(1) 公約宣言 — 候補者がタイプ固有の戦略に基づき加重公約ポートフォリオを宣言、'
-    '(2) 選挙運動 — 有権者が公約を観察し期待を形成、'
-    '(3) 投票 — 有権者が政策近接性と回顧的評価を組み合わせた効用関数で投票、'
-    '(4) 任期 — 当選候補がタイプと外部ノイズにより決定される実現度で政策を実行、'
-    '(5) 評価 — 各公約の実現度スコアを算出、'
-    '(6) 信任更新 — 説明責任得点Sを算出し影響関数ω(S)により信任係数τに変換。'
-)
-doc.add_paragraph(
-    '各世代の終了時（Gサイクルごと、ベースラインではG = 5）に、候補者集団は進化的置換を受ける：'
-    '最もパフォーマンスの低い候補者が成功した候補者の変異コピーに置換され、政治的競争における'
-    '参入・退出動態をシミュレートする。'
+doc.add_heading('4.3 \u30d7\u30ed\u30bb\u30b9\u6982\u8981\u3068\u30b9\u30b1\u30b8\u30e5\u30fc\u30ea\u30f3\u30b0', level=2)
+add_text_para(
+    '\u5404\u9078\u6319\u30b5\u30a4\u30af\u30eb\u306f6\u3064\u306e\u30d5\u30a7\u30fc\u30ba\u3092\u56fa\u5b9a\u9806\u5e8f\u3067\u9032\u884c\u3059\u308b\uff1a'
+    '(1)\u516c\u7d04\u5ba3\u8a00\u3001(2)\u9078\u6319\u904b\u52d5\u3001(3)\u6295\u7968\u3001(4)\u4efb\u671f\u3001(5)\u8a55\u4fa1\u3001(6)\u4fe1\u4efb\u66f4\u65b0\u3002'
+    '\u5404\u4e16\u4ee3\u306e\u7d42\u4e86\u6642\uff08G\u30b5\u30a4\u30af\u30eb\u3054\u3068\u3001G = 5\uff09\u306b\u3001\u5019\u88dc\u8005\u96c6\u56e3\u306f\u9032\u5316\u7684\u7f6e\u63db\u3092\u53d7\u3051\u308b\u3002'
 )
 
-doc.add_heading('4.4 設計概念（Design Concepts）', level=2)
-doc.add_paragraph(
-    '基本原理：モデルは回顧的投票理論（Fiorina, 1981）、プリンシパル・エージェント説明責任モデル'
-    '（Barro, 1973; Ferejohn, 1986）、および進化ゲーム理論を統合する。中心的設計原理は、回顧的'
-    '評価ループの制度化が、公約を実現する候補者を有利にする淘汰圧を生み出すことである。'
+doc.add_heading('4.4 \u8a2d\u8a08\u6982\u5ff5\uff08Design Concepts\uff09', level=2)
+add_text_para(
+    '\u57fa\u672c\u539f\u7406\uff1a\u30e2\u30c7\u30eb\u306f\u56de\u9867\u7684\u6295\u7968\u7406\u8ad6 [2]\u3001\u30d7\u30ea\u30f3\u30b7\u30d1\u30eb\u30fb\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u8aac\u660e\u8cac\u4efb\u30e2\u30c7\u30eb'
+    ' [14, 15]\u3001\u304a\u3088\u3073\u9032\u5316\u30b2\u30fc\u30e0\u7406\u8ad6\u3092\u7d71\u5408\u3059\u308b\u3002'
 )
-doc.add_paragraph(
-    '創発：主要な創発的結果には、候補者タイプの均衡分布、定常状態の説明責任水準、戦略的適応の'
-    '程度が含まれる。'
-)
-doc.add_paragraph(
-    '適応：候補者はタイプ固有のヒューリスティクスに基づいて公約戦略を適応させる。誠実型は'
-    '真の政策意図に一致する公約を宣言する。ポピュリスト型は実現能力にかかわらず最大限魅力的な'
-    '公約を宣言する。戦略的欺瞞型は期待される信任係数動態に基づいて公約宣言を最適化する。'
-)
-doc.add_paragraph(
-    '適応度：候補者の適応度は、持続可能性（複数サイクルにわたる高い信任係数の維持）で加重された'
-    '選挙成功（当選回数）により計測される。'
-)
-doc.add_paragraph(
-    '確率性：確率的要素には、有権者の意思決定ノイズ、公約実現ノイズ（制御不能な要因を表す）、'
-    '進化的置換時の候補者戦略の突然変異、および初期条件が含まれる。'
-)
-doc.add_paragraph(
-    '観測：サイクルにわたる平均説明責任得点、候補者タイプ分布、信任係数分布、有権者厚生、'
-    '敵対的攻略適応度を記録する。'
+add_text_para('\u5275\u767a\uff1a\u4e3b\u8981\u306a\u5275\u767a\u7684\u7d50\u679c\u306b\u306f\u3001\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u306e\u5747\u8861\u5206\u5e03\u3001\u5b9a\u5e38\u72b6\u614b\u306e\u8aac\u660e\u8cac\u4efb\u6c34\u6e96\u3001\u6226\u7565\u7684\u9069\u5fdc\u306e\u7a0b\u5ea6\u304c\u542b\u307e\u308c\u308b\u3002')
+add_text_para('\u89b3\u6e2c\uff1a\u30b5\u30a4\u30af\u30eb\u306b\u308f\u305f\u308b\u5e73\u5747\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u3001\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u5206\u5e03\u3001\u4fe1\u4efb\u4fc2\u6570\u5206\u5e03\u3001\u6709\u6a29\u8005\u539a\u751f\u3001\u6575\u5bfe\u7684\u653b\u7565\u9069\u5fdc\u5ea6\u3092\u8a18\u9332\u3059\u308b\u3002')
+
+doc.add_heading('4.5 \u521d\u671f\u5316\uff08Initialization\uff09', level=2)
+add_text_para(
+    '\u6709\u6a29\u8005\u306e\u9078\u597d\u306f\u539f\u70b9\u3092\u4e2d\u5fc3\u3068\u3057\u5171\u5206\u6563 \u03a3 = I\u2083 \u306e\u591a\u5909\u91cf\u6b63\u898f\u5206\u5e03\u304b\u3089\u62bd\u51fa\u3059\u308b\u3002\u521d\u671f\u5019\u88dc\u8005\u4f4d\u7f6e\u306f '
+    '[\u22121, 1]\u00b3 \u306b\u4e00\u69d8\u5206\u5e03\u3059\u308b\u3002\u521d\u671f\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u5206\u5e03\u306f3\u30bf\u30a4\u30d7\u5747\u7b49\uff08\u54041/3\uff09\u3068\u3059\u308b\u3002\u5168\u4fe1\u4efb\u4fc2\u6570\u306f '
+    '\u03c4\u2080 = 1.0 \u3067\u521d\u671f\u5316\u3059\u308b\u3002\u5b9f\u9a13\u6761\u4ef6\u3054\u3068\u306b50\u56de\u306e\u72ec\u7acb\u53cd\u5fa9\u5b9f\u884c\u3092\u884c\u3046\u3002'
 )
 
-doc.add_heading('4.5 初期化（Initialization）', level=2)
-doc.add_paragraph(
-    '有権者の選好は原点を中心とし共分散 Σ = I₃ の多変量正規分布から抽出する。初期候補者位置は '
-    '[−1, 1]³ に一様分布する。初期候補者タイプ分布は3タイプ均等（各1/3）とする。全信任係数は '
-    'τ₀ = 1.0 で初期化する。確率的変動を考慮するため、実験条件ごとに50回の独立反復実行を行う。'
+doc.add_heading('4.6 \u5165\u529b\u30c7\u30fc\u30bf\uff08Input Data\uff09', level=2)
+add_text_para(
+    '\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3\u30e2\u30c7\u30eb\u306f\u5185\u751f\u7684\u306b\u52d5\u614b\u3092\u751f\u6210\u3059\u308b\u304c\u30012\u3064\u306e\u5916\u90e8\u30c7\u30fc\u30bf\u30bd\u30fc\u30b9\u3092\u7528\u3044\u305f\u5b9f\u8a3c\u7684\u8f03\u6b63\u3092'
+    '\u88dc\u5b8c\u7684\u306b\u5b9f\u65bd\u3059\u308b\uff1a(1) Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 [29]\uff08polimeter.org\uff09\u2014\u30ab\u30ca\u30c0\u9023\u90a3\u653f\u5e9c\u306e3\u8b70\u4f1a\u671f\u306b'
+    '\u308f\u305f\u308b\u516c\u7d04\u5b9f\u73fe\u5ea6\u8ffd\u8de1\uff08Justin Trudeau\u9996\u76f8\u30012015\u20132025\u5e74\u3001\u8a081,050\u4ef6\u306e\u516c\u7d04\uff09\u3001(2) Thomson '
+    'et al. [10]\u306b\u3088\u308b\u6bd4\u8f03\u653f\u515a\u516c\u7d04\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9\u201412\u30ab\u56fd57\u9078\u6319\u306e20,000\u4ef6\u8d85\u306e\u516c\u7d04\u3002'
 )
 
-doc.add_heading('4.6 入力データ（Input Data）', level=2)
-doc.add_paragraph(
-    'ベースラインモデルは内生的に動態を生成するが、2つの外部データソースを用いた実証的較正を'
-    '補完的に実施する：(1) Polimeterプロジェクト（polimeter.org）—カナダ連邦政府の3議会期に'
-    'わたる公約実現度追跡（Justin Trudeau首相、2015\u20132025年、計1,050件の公約）、(2) Thomson '
-    'et al.（2017）による比較政党公約データベース—12カ国57選挙の20,000件超の公約に基づく国際的'
-    '実現率。これらのデータは候補者の実現行動を規定するBeta分布パラメータの再較正（第5.5節）'
-    'および実世界の政治的帰結に対するTATSUKIの予測効果の反事実分析に使用される。'
+doc.add_heading('4.7 \u30b5\u30d6\u30e2\u30c7\u30eb\uff08Submodels\uff09', level=2)
+add_text_para(
+    '\u6709\u6a29\u8005\u9078\u629e\u30e2\u30c7\u30eb\uff1a\u6709\u6a29\u8005 v_i \u306f\u52b9\u7528\u95a2\u6570 U_i(c) = \u2212\u2016\u03b8_i \u2212 \u03c0_c\u2016\u00b2 + \u03bc_i \u00b7 \u03c4_c + \u03b5_i \u3092\u6700\u5927\u5316'
+    '\u3059\u308b\u5019\u88dc\u8005\u3092\u9078\u629e\u3059\u308b\u3002'
 )
-
-doc.add_heading('4.7 サブモデル（Submodels）', level=2)
-doc.add_paragraph(
-    '有権者選択モデル：有権者 v_i は効用関数 U_i(c) = −‖θ_i − π_c‖² + μ_i · τ_c + ε_i を最大化'
-    'する候補者を選択する。第1項は政策近接性、第2項は回顧的信任、ε_i ~ N(0, σ_i²) は意思決定'
-    'ノイズを表す。'
+add_text_para(
+    '\u516c\u7d04\u5b9f\u73fe\u30e2\u30c7\u30eb\uff1a\u30bf\u30a4\u30d7 T_c \u306e\u5f53\u9078\u5019\u88dc\u8005c\u306b\u3064\u3044\u3066\u3001\u516c\u7d04j\u306e\u5b9f\u73fe\u5ea6\u30b9\u30b3\u30a2\u306f '
+    'f_j = min(1, max(0, f*_j + \u03b7_j)) \u3067\u3042\u308b\u3002f*_j \u306f\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u306b\u4f9d\u5b58'
+    '\uff08\u8aa0\u5b9f\u578b\uff1aBeta(8, 2)\u3001\u30dd\u30d4\u30e5\u30ea\u30b9\u30c8\u578b\uff1aBeta(2, 5)\u3001\u6226\u7565\u578b\uff1aBeta(5, 3)\uff09\u3002'
 )
-doc.add_paragraph(
-    '公約実現モデル：タイプ T_c の当選候補者cについて、公約jの実現度スコアは '
-    'f_j = min(1, max(0, f*_j + η_j)) である。ここで f*_j は候補者タイプに依存'
-    '（誠実型：f*_j ~ Beta(8, 2)、ポピュリスト型：f*_j ~ Beta(2, 5)、戦略型：f*_j ~ Beta(5, 3)）'
-    'し、η_j ~ N(0, 0.05) は外部ノイズを表す。'
-)
-doc.add_paragraph(
-    '進化的置換：Gサイクルごとに、累積適応度が最も低い候補者が、最も高い適応度の候補者の変異'
-    'コピーに置換される。突然変異はタイプ（確率 p_mutation = 0.1）、政策位置（ガウスノイズ、'
-    'σ_mut = 0.1）、および公約戦略パラメータを摂動する。'
+add_text_para(
+    '\u9032\u5316\u7684\u7f6e\u63db\uff1aG\u30b5\u30a4\u30af\u30eb\u3054\u3068\u306b\u3001\u7d2f\u7a4d\u9069\u5fdc\u5ea6\u304c\u6700\u3082\u4f4e\u3044\u5019\u88dc\u8005\u304c\u3001\u6700\u3082\u9ad8\u3044\u9069\u5fdc\u5ea6\u306e\u5019\u88dc\u8005\u306e\u5909\u7570'
+    '\u30b3\u30d4\u30fc\u306b\u7f6e\u63db\u3055\u308c\u308b\u3002\u7a81\u7136\u5909\u7570\u306f\u30bf\u30a4\u30d7\uff08\u78ba\u7387 p_mutation = 0.1\uff09\u3001\u653f\u7b56\u4f4d\u7f6e\uff08\u30ac\u30a6\u30b9\u30ce\u30a4\u30ba\u3001'
+    '\u03c3_mut = 0.1\uff09\u3001\u304a\u3088\u3073\u516c\u7d04\u6226\u7565\u30d1\u30e9\u30e1\u30fc\u30bf\u3092\u6442\u52d5\u3059\u308b\u3002'
 )
 
 # ══════════════════════════════════════════════
 # 5. シミュレーション実験と結果
 # ══════════════════════════════════════════════
-doc.add_heading('5. シミュレーション実験と結果（Simulation Experiments and Results）', level=1)
+doc.add_heading('5. \u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u5b9f\u9a13\u3068\u7d50\u679c\uff08Simulation Experiments and Results\uff09', level=1)
 
-doc.add_heading('5.1 実験設計', level=2)
-doc.add_paragraph(
-    '4つの実験セットを実施する：(1) 30選挙サイクルにわたるTATSUKIと標準選挙のベースライン比較、'
-    '(2) τ_min, τ_max, 影響関数タイプを変動させた感度分析、(3) 遺伝的アルゴリズムによる候補者'
-    '攻略戦略探索を用いた敵対的ロバスト性テスト、(4) 候補者数と有権者数を変動させたスケーラビリティ'
-    '分析。各実験は異なる乱数シードで50回反復される。'
+doc.add_heading('5.1 \u5b9f\u9a13\u8a2d\u8a08', level=2)
+add_text_para(
+    '4\u3064\u306e\u5b9f\u9a13\u30bb\u30c3\u30c8\u3092\u5b9f\u65bd\u3059\u308b\uff1a(1) 30\u9078\u6319\u30b5\u30a4\u30af\u30eb\u306b\u308f\u305f\u308bTATSUKI\u3068\u6a19\u6e96\u9078\u6319\u306e\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3\u6bd4\u8f03\u3001'
+    '(2) \u03c4_min, \u03c4_max, \u5f71\u97ff\u95a2\u6570\u30bf\u30a4\u30d7\u3092\u5909\u52d5\u3055\u305b\u305f\u611f\u5ea6\u5206\u6790\u3001(3) \u907a\u4f1d\u7684\u30a2\u30eb\u30b4\u30ea\u30ba\u30e0\u306b\u3088\u308b\u5019\u88dc\u8005'
+    '\u653b\u7565\u6226\u7565\u63a2\u7d22\u3092\u7528\u3044\u305f\u6575\u5bfe\u7684\u30ed\u30d0\u30b9\u30c8\u6027\u30c6\u30b9\u30c8\u3001(4) \u5019\u88dc\u8005\u6570\u3068\u6709\u6a29\u8005\u6570\u3092\u5909\u52d5\u3055\u305b\u305f\u30b9\u30b1\u30fc\u30e9\u30d3\u30ea\u30c6\u30a3'
+    '\u5206\u6790\u3002\u5404\u5b9f\u9a13\u306f\u7570\u306a\u308b\u4e71\u6570\u30b7\u30fc\u30c9\u306750\u56de\u53cd\u5fa9\u3055\u308c\u308b\u3002'
 )
 
-doc.add_heading('5.2 ベースライン結果', level=2)
+doc.add_heading('5.2 \u30d9\u30fc\u30b9\u30e9\u30a4\u30f3\u7d50\u679c', level=2)
 
-# Figure 3: Simulation results
 add_figure(f'{FIGS}/fig3_simulation_results.png',
-           '図4. 30選挙サイクルにわたるベースラインシミュレーション結果。'
-           '(a) TATSUKI（凹関数ω）と標準選挙の平均説明責任得点推移。影付き領域は±1SD。'
-           '(b) TATSUKI下の候補者タイプ比率の進化動態。'
-           '(c) 初期（サイクル1-5）と後期（サイクル25-30）の信任係数分布。'
-           '(d) TATSUKI・標準選挙・QVベースラインの平均有権者厚生比較。',
+           '\u56f34. 30\u9078\u6319\u30b5\u30a4\u30af\u30eb\u306b\u308f\u305f\u308b\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u7d50\u679c\u3002'
+           '(a) TATSUKI\uff08\u51f9\u95a2\u6570\u03c9\uff09\u3068\u6a19\u6e96\u9078\u6319\u306e\u5e73\u5747\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u63a8\u79fb\u3002\u5f71\u4ed8\u304d\u9818\u57df\u306f\u00b11SD\u3002'
+           '(b) TATSUKI\u4e0b\u306e\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u6bd4\u7387\u306e\u9032\u5316\u52d5\u614b\u3002'
+           '(c) \u521d\u671f\uff08\u30b5\u30a4\u30af\u30eb1-5\uff09\u3068\u5f8c\u671f\uff08\u30b5\u30a4\u30af\u30eb25-30\uff09\u306e\u4fe1\u4efb\u4fc2\u6570\u5206\u5e03\u3002'
+           '(d) TATSUKI\u30fb\u6a19\u6e96\u9078\u6319\u30fbQV\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3\u306e\u5e73\u5747\u6709\u6a29\u8005\u539a\u751f\u6bd4\u8f03\u3002',
            width=5.5)
 
-doc.add_paragraph(
-    '図4は凹影響関数（ω(S) = τ_min + (τ_max − τ_min)·√S、τ_min = 0.5, τ_max = 1.5）を用いた'
-    'ベースライン結果を示す。パネル(a)では、TATSUKI下の平均説明責任得点がサイクル1の約0.45から'
-    'サイクル20までに約0.78の定常状態に上昇し、73%の改善を示している。対照的に、標準選挙は全期間を'
-    '通じて0.45付近で変動を続ける。'
+add_text_para(
+    '\u56f34\u306f\u51f9\u5f71\u97ff\u95a2\u6570\uff08\u03c9(S) = \u03c4_min + (\u03c4_max \u2212 \u03c4_min)\u00b7\u221aS\u3001\u03c4_min = 0.5, \u03c4_max = 1.5\uff09\u3092\u7528\u3044\u305f'
+    '\u30d9\u30fc\u30b9\u30e9\u30a4\u30f3\u7d50\u679c\u3092\u793a\u3059\u3002\u30d1\u30cd\u30eb(a)\u3067\u306f\u3001TATSUKI\u4e0b\u306e\u5e73\u5747\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u304c\u30b5\u30a4\u30af\u30eb1\u306e\u7d040.45\u304b\u3089'
+    '\u30b5\u30a4\u30af\u30eb20\u307e\u3067\u306b\u7d040.78\u306e\u5b9a\u5e38\u72b6\u614b\u306b\u4e0a\u6607\u3057\u300173%\u306e\u6539\u5584\u3092\u793a\u3057\u3066\u3044\u308b\u3002'
 )
-doc.add_paragraph(
-    'パネル(b)はこの改善の基盤となる進化的メカニズムを示す。誠実な候補者の割合が30サイクルで'
-    '33%から約70%に増加し、ポピュリスト型と戦略的欺瞞型が減少する。これはTATSUKIが真の公約実現を'
-    '通じて高い信任係数を維持できる候補者を有利にする淘汰圧を生み出すことを実証している。'
-)
-doc.add_paragraph(
-    'パネル(c)は信任係数分布が時間とともに右方にシフトし、高パフォーマンス候補者の増加を反映して'
-    'いることを示す。パネル(d)はシステム間の有権者厚生を比較し、TATSUKIが最も高い厚生改善を達成し、'
-    'QVベースラインがそれに続き、標準選挙が最も少ない改善を示すことを報告している。'
+add_text_para(
+    '\u30d1\u30cd\u30eb(b)\u306f\u3053\u306e\u6539\u5584\u306e\u57fa\u76e4\u3068\u306a\u308b\u9032\u5316\u7684\u30e1\u30ab\u30cb\u30ba\u30e0\u3092\u793a\u3059\u3002\u8aa0\u5b9f\u306a\u5019\u88dc\u8005\u306e\u5272\u5408\u304c30\u30b5\u30a4\u30af\u30eb\u3067'
+    '33%\u304b\u3089\u7d0470%\u306b\u5897\u52a0\u3057\u3001\u30dd\u30d4\u30e5\u30ea\u30b9\u30c8\u578b\u3068\u6226\u7565\u7684\u6b3a\u779e\u578b\u304c\u6e1b\u5c11\u3059\u308b\u3002'
 )
 
-doc.add_heading('5.3 感度分析', level=2)
+doc.add_heading('5.3 \u611f\u5ea6\u5206\u6790', level=2)
 
-# Figure 5: Sensitivity
 add_figure(f'{FIGS}/fig5_sensitivity.png',
-           '図5. 感度分析。(a) 凹影響関数における τ_min と τ_max の関数としての均衡平均説明責任'
-           '得点のヒートマップ。暖色が高い説明責任を示す。(b) 候補者数の関数としての収束速度と'
-           '最終説明責任のスケーラビリティ分析。',
+           '\u56f35. \u611f\u5ea6\u5206\u6790\u3002(a) \u51f9\u5f71\u97ff\u95a2\u6570\u306b\u304a\u3051\u308b \u03c4_min \u3068 \u03c4_max \u306e\u95a2\u6570\u3068\u3057\u3066\u306e\u5747\u8861\u5e73\u5747\u8aac\u660e\u8cac\u4efb'
+           '\u5f97\u70b9\u306e\u30d2\u30fc\u30c8\u30de\u30c3\u30d7\u3002(b) \u5019\u88dc\u8005\u6570\u306e\u95a2\u6570\u3068\u3057\u3066\u306e\u53ce\u675f\u901f\u5ea6\u3068\u6700\u7d42\u8aac\u660e\u8cac\u4efb\u306e\u30b9\u30b1\u30fc\u30e9\u30d3\u30ea\u30c6\u30a3\u5206\u6790\u3002',
            width=5.5)
 
-doc.add_paragraph(
-    '図5(a)は(τ_min, τ_max)パラメータ空間にわたる均衡説明責任得点のヒートマップを示す。'
-    '高い説明責任均衡はパラメータ範囲が広い（低いτ_min、高いτ_max）場合に達成され、強い'
-    'インセンティブ勾配を提供する。罰則のみ設定（τ_max = 1.0）は中程度の改善を生むが、'
-    '報酬のみ設定（τ_min = 1.0）は顕著に効果が低く、信任低下の脅威が信任向上の約束よりも'
-    '強力な動機付けであることを示唆している。'
-)
-doc.add_paragraph(
-    '図5(b)はスケーラビリティを検討する。候補者数が増加すると収束は遅くなるが、TATSUKIの'
-    '定性的な優位性は維持される。TATSUKIはテストされた全ての候補者プールサイズにわたって、'
-    '標準選挙よりも一貫して高い均衡説明責任を達成する。'
+add_text_para(
+    '\u56f35(a)\u306f(\u03c4_min, \u03c4_max)\u30d1\u30e9\u30e1\u30fc\u30bf\u7a7a\u9593\u306b\u308f\u305f\u308b\u5747\u8861\u8aac\u660e\u8cac\u4efb\u5f97\u70b9\u306e\u30d2\u30fc\u30c8\u30de\u30c3\u30d7\u3092\u793a\u3059\u3002'
+    '\u9ad8\u3044\u8aac\u660e\u8cac\u4efb\u5747\u8861\u306f\u30d1\u30e9\u30e1\u30fc\u30bf\u7bc4\u56f2\u304c\u5e83\u3044\uff08\u4f4e\u3044\u03c4_min\u3001\u9ad8\u3044\u03c4_max\uff09\u5834\u5408\u306b\u9054\u6210\u3055\u308c\u308b\u3002'
 )
 
-doc.add_heading('5.4 敵対的ロバスト性', level=2)
+doc.add_heading('5.4 \u6575\u5bfe\u7684\u30ed\u30d0\u30b9\u30c8\u6027', level=2)
 
-# Figure 4: Adversarial
 add_figure(f'{FIGS}/fig4_adversarial.png',
-           '図6. 敵対的ロバスト性分析。(a) 戦略タイプと影響関数別の攻略可能性指標。'
-           '低い値ほど操作耐性が高い。(b) 影響関数タイプ別の遺伝的アルゴリズム探索の収束。',
+           '\u56f36. \u6575\u5bfe\u7684\u30ed\u30d0\u30b9\u30c8\u6027\u5206\u6790\u3002(a) \u6226\u7565\u30bf\u30a4\u30d7\u3068\u5f71\u97ff\u95a2\u6570\u5225\u306e\u653b\u7565\u53ef\u80fd\u6027\u6307\u6a19\u3002'
+           '\u4f4e\u3044\u5024\u307b\u3069\u64cd\u4f5c\u8010\u6027\u304c\u9ad8\u3044\u3002(b) \u5f71\u97ff\u95a2\u6570\u30bf\u30a4\u30d7\u5225\u306e\u907a\u4f1d\u7684\u30a2\u30eb\u30b4\u30ea\u30ba\u30e0\u63a2\u7d22\u306e\u53ce\u675f\u3002',
            width=5.5)
 
-doc.add_paragraph(
-    '各影響関数バリアントに対する攻略戦略を発見するために遺伝的アルゴリズムを用いる。GA集団は'
-    '公約重み付け戦術、実現度ゲーミングアプローチ、連合形成規則をエンコードする100の候補者戦略'
-    'ゲノムで構成される。図6(a)は戦略タイプと影響関数の各組み合わせの攻略可能性指標（高いほど脆弱）'
-    'を報告する。'
-)
-doc.add_paragraph(
-    'シグモイド関数が最低の全体的攻略可能性（平均 = 0.16）を示し、凹関数（0.16）が続く。'
-    'ステップ関数は最も脆弱（0.21）であり、特に過大約束戦略に対して脆弱である。これはその'
-    '全か無かの閾値が閾値近辺での戦略的操作への強いインセンティブを生むためである。凸関数は'
-    '全戦略タイプにわたり中程度に脆弱（平均 = 0.28）である。'
-)
-doc.add_paragraph(
-    '図6(b)は敵対的探索が約100-150のGA世代以内に収束することを示し、攻略戦略が存在する場合は'
-    '発見可能であることを示している。シグモイドと凹関数が最低の収束後攻略適応度を持ち、'
-    'その優れたロバスト性を確認している。'
+add_text_para(
+    '\u5404\u5f71\u97ff\u95a2\u6570\u30d0\u30ea\u30a2\u30f3\u30c8\u306b\u5bfe\u3059\u308b\u653b\u7565\u6226\u7565\u3092\u767a\u898b\u3059\u308b\u305f\u3081\u306b\u907a\u4f1d\u7684\u30a2\u30eb\u30b4\u30ea\u30ba\u30e0\u3092\u7528\u3044\u308b\u3002'
+    '\u30b7\u30b0\u30e2\u30a4\u30c9\u95a2\u6570\u304c\u6700\u4f4e\u306e\u5168\u4f53\u7684\u653b\u7565\u53ef\u80fd\u6027\uff08\u5e73\u5747 = 0.16\uff09\u3092\u793a\u3057\u3001\u51f9\u95a2\u6570\uff080.16\uff09\u304c\u7d9a\u304f\u3002'
+    '\u30b9\u30c6\u30c3\u30d7\u95a2\u6570\u306f\u6700\u3082\u8106\u5f31\uff080.21\uff09\u3067\u3042\u308b\u3002'
 )
 
 # ──────────────────────────────────────────────
 # 5.5 実証的較正と反事実分析
 # ──────────────────────────────────────────────
-doc.add_heading('5.5 実証的較正と反事実分析', level=2)
+doc.add_heading('5.5 \u5b9f\u8a3c\u7684\u8f03\u6b63\u3068\u53cd\u4e8b\u5b9f\u5206\u6790', level=2)
 
-doc.add_paragraph(
-    'モデルを実証的現実に基礎づけるために、Polimeterプロジェクト（polimeter.org）と比較政党公約'
-    'データベース（Thomson et al., 2017）の2つのデータソースを用いて実現度分布パラメータを較正する。'
-)
-
-doc.add_heading('5.5.1 データソース', level=3)
-doc.add_paragraph(
-    'Polimeterプロジェクトは、ラヴァル大学の政治学者により開発され、比較政党公約グループ（Naurin, '
-    'Royed, & Thomson, 2020）の方法論を用いてカナダ連邦政府の公約実現度を体系的に追跡している。'
-    'Justin Trudeau首相について、第42議会（2015\u20132019年；N=353）、第43議会（2019\u20132021年；'
-    'N=345）、第44議会（2021\u20132025年；N=352）の3議会期にわたり計1,050件の公約をコーディング'
-    'した。各公約は「実現」「部分的実現」「未実現」に分類される。これを連続的実現スコアに変換した：'
-    '実現=1.0、部分的実現=0.5、未実現=0.0。'
-)
-doc.add_paragraph(
-    'Thomson et al.（2017）は12カ国57選挙の20,000件超の公約から集約的実現率を提供している。'
-    '単独政党多数派政権で72%、連立多数派で58%、少数派政権で61%の平均実現率が報告されている。'
-    '国際平均は約67%である。'
+add_text_para(
+    '\u30e2\u30c7\u30eb\u3092\u5b9f\u8a3c\u7684\u73fe\u5b9f\u306b\u57fa\u790e\u3065\u3051\u308b\u305f\u3081\u306b\u3001Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8 [29]\u3068\u6bd4\u8f03\u653f\u515a\u516c\u7d04'
+    '\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9 [10]\u306e2\u3064\u306e\u30c7\u30fc\u30bf\u30bd\u30fc\u30b9\u3092\u7528\u3044\u3066\u5b9f\u73fe\u5ea6\u5206\u5e03\u30d1\u30e9\u30e1\u30fc\u30bf\u3092\u8f03\u6b63\u3059\u308b\u3002'
 )
 
-doc.add_heading('5.5.2 パラメータ再較正', level=3)
-doc.add_paragraph(
-    'Polimeterデータは3議会期にわたり平均実現スコア0.596を示し、Thomson et al.の少数派政権平均'
-    '0.61と近接している（差 = \u22120.014）。この収束はPolimeterのコーディング方法論の外的一貫性'
-    'を検証し、少数派またはわずかな多数派政権として運営されたTrudeau政権がこの政権タイプの国際的'
-    '規範と一致する実現パターンを示していることを確認する。'
+doc.add_heading('5.5.1 \u30c7\u30fc\u30bf\u30bd\u30fc\u30b9', level=3)
+add_text_para(
+    'Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u306f\u3001\u30e9\u30f4\u30a1\u30eb\u5927\u5b66\u306e\u653f\u6cbb\u5b66\u8005\u306b\u3088\u308a\u958b\u767a\u3055\u308c\u3001\u6bd4\u8f03\u653f\u515a\u516c\u7d04\u30b0\u30eb\u30fc\u30d7 [23]\u306e\u65b9\u6cd5\u8ad6\u3092\u7528\u3044\u3066\u30ab\u30ca\u30c0\u9023\u90a3\u653f\u5e9c\u306e\u516c\u7d04\u5b9f\u73fe\u5ea6\u3092\u4f53\u7cfb\u7684\u306b\u8ffd\u8de1\u3057\u3066\u3044\u308b\u3002'
+    'Justin Trudeau\u9996\u76f8\u306b\u3064\u3044\u3066\u3001\u7b2c42\u8b70\u4f1a\uff082015\u20132019\u5e74\uff1bN=353\uff09\u3001\u7b2c43\u8b70\u4f1a\uff082019\u20132021\u5e74\uff1b'
+    'N=345\uff09\u3001\u7b2c44\u8b70\u4f1a\uff082021\u20132025\u5e74\uff1bN=352\uff09\u306e3\u8b70\u4f1a\u671f\u306b\u308f\u305f\u308a\u8a081,050\u4ef6\u306e\u516c\u7d04\u3092\u30b3\u30fc\u30c7\u30a3\u30f3\u30b0'
+    '\u3057\u305f\u3002\u5404\u516c\u7d04\u306f\u300c\u5b9f\u73fe\u300d\u300c\u90e8\u5206\u7684\u5b9f\u73fe\u300d\u300c\u672a\u5b9f\u73fe\u300d\u306b\u5206\u985e\u3055\u308c\u308b\u3002'
 )
-doc.add_paragraph(
-    'これらの実証的ベンチマークを用いて各候補者タイプのBeta分布パラメータを再較正した。元の'
-    'パラメータ（誠実型：Beta(8,2)、平均=0.80；ポピュリスト型：Beta(2,5)、平均=0.29；戦略型：'
-    'Beta(5,3)、平均=0.63）をThomsonの単独政党多数派率（誠実型：Beta(5.8, 2.2)、平均=0.73）、'
-    '低実現プロファイル（ポピュリスト型：Beta(2.0, 4.9)、平均=0.29）、Polimeter少数派政権平均'
-    '（戦略型：Beta(4.2, 2.8)、平均=0.60）に合わせて調整した。図7(d)に元と較正後のBeta分布を'
-    '比較する。'
+add_text_para(
+    'Thomson et al. [10]\u306f12\u30ab\u56fd57\u9078\u6319\u306e20,000\u4ef6\u8d85\u306e\u516c\u7d04\u304b\u3089\u96c6\u7d04\u7684\u5b9f\u73fe\u7387\u3092\u63d0\u4f9b\u3057\u3066\u3044\u308b\u3002'
+    '\u5358\u72ec\u653f\u515a\u591a\u6570\u6d3e\u653f\u6a29\u306772%\u3001\u9023\u7acb\u591a\u6570\u6d3e\u306758%\u3001\u5c11\u6570\u6d3e\u653f\u6a29\u306761%\u306e\u5e73\u5747\u5b9f\u73fe\u7387\u304c\u5831\u544a\u3055\u308c\u3066\u3044\u308b\u3002'
 )
 
-# Figure 7: 実証的較正
+doc.add_heading('5.5.2 \u30d1\u30e9\u30e1\u30fc\u30bf\u518d\u8f03\u6b63', level=3)
+add_text_para(
+    'Polimeter\u30c7\u30fc\u30bf\u306f3\u8b70\u4f1a\u671f\u306b\u308f\u305f\u308a\u5e73\u5747\u5b9f\u73fe\u30b9\u30b3\u30a20.596\u3092\u793a\u3057\u3001Thomson et al.\u306e\u5c11\u6570\u6d3e\u653f\u6a29\u5e73\u5747'
+    '0.61\u3068\u8fd1\u63a5\u3057\u3066\u3044\u308b\uff08\u5dee = \u22120.014\uff09\u3002\u3053\u306e\u53ce\u675f\u306fPolimeter\u306e\u30b3\u30fc\u30c7\u30a3\u30f3\u30b0\u65b9\u6cd5\u8ad6\u306e\u5916\u7684\u4e00\u8cab\u6027'
+    '\u3092\u691c\u8a3c\u3059\u308b\u3002'
+)
+add_text_para(
+    '\u3053\u308c\u3089\u306e\u5b9f\u8a3c\u7684\u30d9\u30f3\u30c1\u30de\u30fc\u30af\u3092\u7528\u3044\u3066\u5404\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u306eBeta\u5206\u5e03\u30d1\u30e9\u30e1\u30fc\u30bf\u3092\u518d\u8f03\u6b63\u3057\u305f\u3002\u5143\u306e'
+    '\u30d1\u30e9\u30e1\u30fc\u30bf\uff08\u8aa0\u5b9f\u578b\uff1aBeta(8,2)\u3001\u5e73\u5747=0.80\uff1b\u30dd\u30d4\u30e5\u30ea\u30b9\u30c8\u578b\uff1aBeta(2,5)\u3001\u5e73\u5747=0.29\uff1b\u6226\u7565\u578b\uff1a'
+    'Beta(5,3)\u3001\u5e73\u5747=0.63\uff09\u3092Thomson\u306e\u5358\u72ec\u653f\u515a\u591a\u6570\u6d3e\u7387\uff08\u8aa0\u5b9f\u578b\uff1aBeta(5.8, 2.2)\u3001\u5e73\u5747=0.73\uff09\u3001'
+    '\u4f4e\u5b9f\u73fe\u30d7\u30ed\u30d5\u30a1\u30a4\u30eb\uff08\u30dd\u30d4\u30e5\u30ea\u30b9\u30c8\u578b\uff1aBeta(2.0, 4.9)\u3001\u5e73\u5747=0.29\uff09\u3001Polimeter\u5c11\u6570\u6d3e\u653f\u6a29\u5e73\u5747'
+    '\uff08\u6226\u7565\u578b\uff1aBeta(4.2, 2.8)\u3001\u5e73\u5747=0.60\uff09\u306b\u5408\u308f\u305b\u3066\u8abf\u6574\u3057\u305f\u3002\u56f37(d)\u306b\u5143\u3068\u8f03\u6b63\u5f8c\u306eBeta\u5206\u5e03\u3092\u6bd4\u8f03\u3059\u308b\u3002'
+)
+
 add_figure(f'{FIGS}/fig7_empirical_calibration.png',
-           '図7. 実証的較正と反事実分析。(a) Polimeterプロジェクトの公約実現スコア分布（N=1,050）と'
-           'Thomson et al.（2017）の参照ベンチマーク。(b) 公約実現率の国際比較。(c) Trudeauの3議会期に'
-           'TATSUKIを適用した反事実的信任係数軌跡。(d) 候補者実現行動の元のBeta分布と較正後Beta分布の'
-           '比較。',
+           '\u56f37. \u5b9f\u8a3c\u7684\u8f03\u6b63\u3068\u53cd\u4e8b\u5b9f\u5206\u6790\u3002(a) Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u306e\u516c\u7d04\u5b9f\u73fe\u30b9\u30b3\u30a2\u5206\u5e03\uff08N=1,050\uff09\u3068'
+           'Thomson et al.\u306e\u53c2\u7167\u30d9\u30f3\u30c1\u30de\u30fc\u30af\u3002(b) \u516c\u7d04\u5b9f\u73fe\u7387\u306e\u56fd\u969b\u6bd4\u8f03\u3002(c) Trudeau\u306e3\u8b70\u4f1a\u671f\u306b'
+           'TATSUKI\u3092\u9069\u7528\u3057\u305f\u53cd\u4e8b\u5b9f\u7684\u4fe1\u4efb\u4fc2\u6570\u8ecc\u8de1\u3002(d) \u5019\u88dc\u8005\u5b9f\u73fe\u884c\u52d5\u306e\u5143\u306eBeta\u5206\u5e03\u3068\u8f03\u6b63\u5f8cBeta\u5206\u5e03\u306e'
+           '\u6bd4\u8f03\u3002',
            width=5.5)
 
-doc.add_heading('5.5.3 反事実分析', level=3)
-doc.add_paragraph(
-    'Polimeterデータに対してTATSUKIを遡及的に適用し、各影響関数バリアントの下でTrudeauの信任係数'
-    '軌跡がどうなったかを計算した。等しい公約重みを仮定すると（Polimeterの二値コーディングに重み'
-    '情報がないことを反映）、説明責任スコアはS₁ = 0.603（第42議会）、S₂ = 0.584（第43議会）、'
-    'S₃ = 0.601（第44議会）となった。'
+doc.add_heading('5.5.3 \u53cd\u4e8b\u5b9f\u5206\u6790', level=3)
+add_text_para(
+    'Polimeter\u30c7\u30fc\u30bf\u306b\u5bfe\u3057\u3066TATSUKI\u3092\u9060\u5e94\u7684\u306b\u9069\u7528\u3057\u3001\u5404\u5f71\u97ff\u95a2\u6570\u30d0\u30ea\u30a2\u30f3\u30c8\u306e\u4e0b\u3067Trudeau\u306e\u4fe1\u4efb\u4fc2\u6570'
+    '\u8ecc\u8de1\u304c\u3069\u3046\u306a\u3063\u305f\u304b\u3092\u8a08\u7b97\u3057\u305f\u3002\u7b49\u3057\u3044\u516c\u7d04\u91cd\u307f\u3092\u4eee\u5b9a\u3059\u308b\u3068\u3001'
+    '\u8aac\u660e\u8cac\u4efb\u30b9\u30b3\u30a2\u306fS\u2081 = 0.603\uff08\u7b2c42\u8b70\u4f1a\uff09\u3001S\u2082 = 0.584\uff08\u7b2c43\u8b70\u4f1a\uff09\u3001'
+    'S\u2083 = 0.601\uff08\u7b2c44\u8b70\u4f1a\uff09\u3068\u306a\u3063\u305f\u3002'
 )
-doc.add_paragraph(
-    '凹型影響関数（τ_min=0.5, τ_max=1.5）の下で、信任係数は3議会期にわたり τ: 1.000 → 1.277 '
-    '→ 1.264 → 1.275 と推移した（図7c）。第43議会でのわずかな低下は、より短い少数派議会期間と'
-    '一致する若干低い実現度（0.584 vs 0.603）を反映している。線形関数ではより穏やかな効果'
-    '（τ: 1.000 → 1.103 → 1.084 → 1.101）、シグモイド関数では中間的な軌跡'
-    '（τ: 1.000 → 1.238 → 1.199 → 1.233）が観察された。'
+add_text_para(
+    '\u51f9\u578b\u5f71\u97ff\u95a2\u6570\uff08\u03c4_min=0.5, \u03c4_max=1.5\uff09\u306e\u4e0b\u3067\u3001\u4fe1\u4efb\u4fc2\u6570\u306f3\u8b70\u4f1a\u671f\u306b\u308f\u305f\u308a \u03c4: 1.000 \u2192 1.277 '
+    '\u2192 1.264 \u2192 1.275 \u3068\u63a8\u79fb\u3057\u305f\uff08\u56f37c\uff09\u3002\u7dda\u5f62\u95a2\u6570\u3067\u306f\u3088\u308a\u7a4f\u3084\u304b\u306a\u52b9\u679c'
+    '\uff08\u03c4: 1.000 \u2192 1.103 \u2192 1.084 \u2192 1.101\uff09\u3001\u30b7\u30b0\u30e2\u30a4\u30c9\u95a2\u6570\u3067\u306f\u4e2d\u9593\u7684\u306a\u8ecc\u8de1'
+    '\uff08\u03c4: 1.000 \u2192 1.238 \u2192 1.199 \u2192 1.233\uff09\u304c\u89b3\u5bdf\u3055\u308c\u305f\u3002'
 )
-doc.add_paragraph(
-    '反事実分析から3つの実質的知見が得られた。第一に、中程度の実現度（約60%）の政権は全ての'
-    '影響関数の下で正の信任ボーナスを受け、TATSUKIが完璧ではなく努力を報酬することを示唆する。'
-    '第二に、信任係数の議会期間にわたる安定性（Δτ < 0.02）は、実現パターンが比較的安定して'
-    'いる場合にTATSUKIが過度のボラティリティを生じさせないことを示す。第三に、凹関数が最も強い'
-    'インセンティブ差別化を提供し、中程度のパフォーマーへの報酬を増幅しながら天井付近の限界利益を'
-    '制限する。'
+add_text_para(
+    '\u53cd\u4e8b\u5b9f\u5206\u6790\u304b\u30893\u3064\u306e\u5b9f\u8cea\u7684\u77e5\u898b\u304c\u5f97\u3089\u308c\u305f\u3002\u7b2c\u4e00\u306b\u3001\u4e2d\u7a0b\u5ea6\u306e\u5b9f\u73fe\u5ea6\uff08\u7d0460%\uff09\u306e\u653f\u6a29\u306f\u5168\u3066\u306e'
+    '\u5f71\u97ff\u95a2\u6570\u306e\u4e0b\u3067\u6b63\u306e\u4fe1\u4efb\u30dc\u30fc\u30ca\u30b9\u3092\u53d7\u3051\u308b\u3002\u7b2c\u4e8c\u306b\u3001\u4fe1\u4efb\u4fc2\u6570\u306e\u8b70\u4f1a\u671f\u9593\u306b\u308f\u305f\u308b\u5b89\u5b9a\u6027'
+    '\uff08\u0394\u03c4 < 0.02\uff09\u306f\u3001TATSUKI\u304c\u904e\u5ea6\u306e\u30dc\u30e9\u30c6\u30a3\u30ea\u30c6\u30a3\u3092\u751f\u3058\u3055\u305b\u306a\u3044\u3053\u3068\u3092\u793a\u3059\u3002'
+    '\u7b2c\u4e09\u306b\u3001\u51f9\u95a2\u6570\u304c\u6700\u3082\u5f37\u3044\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u5dee\u5225\u5316\u3092\u63d0\u4f9b\u3059\u308b\u3002'
 )
 
 # ══════════════════════════════════════════════
 # 6. 議論
 # ══════════════════════════════════════════════
-doc.add_heading('6. 議論（Discussion）', level=1)
+doc.add_heading('6. \u8b70\u8ad6\uff08Discussion\uff09', level=1)
 
-doc.add_heading('6.1 貢献と含意', level=2)
-doc.add_paragraph(
-    '結果は、TATSUKIが標準選挙と比較して選挙的説明責任を有意に改善できることを示している。'
-    'メカニズムは2つのチャネルを通じて機能する：直接的インセンティブ効果（候補者が高い信任係数を'
-    '維持するために行動を調整）と進化的淘汰効果（政治システムが真の実現能力を持つ候補者を選択）。'
-    'これら2つのチャネルの組み合わせが、時間にわたる持続的な説明責任改善を生み出す。'
-)
-doc.add_paragraph(
-    '影響関数族の分析は制度設計の原理的基盤を示す。凹関数とシグモイド関数が最良のバランスを'
-    '提供する：低いSでの急峻な勾配により中程度のパフォーマーに改善への強いインセンティブを与え、'
-    '上端近辺での限界的利得を制限することで、コストが高く限界的にしか報われない操作を抑制する。'
-)
-doc.add_paragraph(
-    '候補者中心の信任係数の定式化は主要な規範的懸念に対処する。信任調整を有権者ではなく候補者に'
-    '付随させることで、TATSUKIは各有権者の投票の形式的平等を維持する。信任係数は、金融市場における'
-    '信用格付けに類似した、候補者の実証された政策実行能力に対する制度的信頼の指標として解釈できる。'
+doc.add_heading('6.1 \u8ca2\u732e\u3068\u542b\u610f', level=2)
+add_text_para(
+    '\u7d50\u679c\u306f\u3001TATSUKI\u304c\u6a19\u6e96\u9078\u6319\u3068\u6bd4\u8f03\u3057\u3066\u9078\u6319\u7684\u8aac\u660e\u8cac\u4efb\u3092\u6709\u610f\u306b\u6539\u5584\u3067\u304d\u308b\u3053\u3068\u3092\u793a\u3057\u3066\u3044\u308b\u3002'
+    '\u30e1\u30ab\u30cb\u30ba\u30e0\u306f2\u3064\u306e\u30c1\u30e3\u30cd\u30eb\u3092\u901a\u3058\u3066\u6a5f\u80fd\u3059\u308b\uff1a\u76f4\u63a5\u7684\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u52b9\u679c\u3068\u9032\u5316\u7684\u6dd8\u6c70\u52b9\u679c\u3002'
 )
 
-doc.add_heading('6.2 一人一票原則との関係', level=2)
-doc.add_paragraph(
-    '一人一票（OPOV）原則は民主的正統性の礎である。TATSUKIの候補者中心の定式化は、各有権者が'
-    '額面価値の等しい一票を投じることを保証する。信任係数は有権者の投票の重みではなく、候補者の'
-    '選挙的乗数を調整する。これは選挙制度が既に選挙区定数、阻止条項、議席配分公式を通じて票を'
-    '異なる重みで扱っていることと類似的である。Baharad, Nitzan, and Segal-Halevi（2022）は'
-    '加重投票が民主的原則と両立する条件を評価する形式的枠組みを提供しており、TATSUKIの正統性評価に'
-    '拡張可能である。'
+doc.add_heading('6.2 \u4e00\u4eba\u4e00\u7968\u539f\u5247\u3068\u306e\u95a2\u4fc2', level=2)
+add_text_para(
+    '\u4e00\u4eba\u4e00\u7968\uff08OPOV\uff09\u539f\u5247\u306f\u6c11\u4e3b\u7684\u6b63\u7d71\u6027\u306e\u790e\u3067\u3042\u308b\u3002TATSUKI\u306e\u5019\u88dc\u8005\u4e2d\u5fc3\u306e\u5b9a\u5f0f\u5316\u306f\u3001\u5404\u6709\u6a29\u8005\u304c'
+    '\u984d\u9762\u4fa1\u5024\u306e\u7b49\u3057\u3044\u4e00\u7968\u3092\u6295\u3058\u308b\u3053\u3068\u3092\u4fdd\u8a3c\u3059\u308b\u3002Baharad, Nitzan, '
+    'and Segal-Halevi [28]\u306f\u52a0\u91cd\u6295\u7968\u304c\u6c11\u4e3b\u7684\u539f\u5247\u3068\u4e21\u7acb\u3059\u308b\u6761\u4ef6\u3092\u8a55\u4fa1\u3059\u308b\u5f62\u5f0f\u7684\u679a\u7d44\u307f\u3092'
+    '\u63d0\u4f9b\u3057\u3066\u3044\u308b\u3002'
 )
 
-doc.add_heading('6.3 限界', level=2)
-doc.add_paragraph(
-    'いくつかの限界を認識する必要がある。第一に、シミュレーション結果は候補者タイプと有権者行動に'
-    '関する様式化された仮定に依存する。現実の選挙動態はより豊かな戦略的相互作用、連立政治、制度的'
-    '制約を含む。第二に、評価メカニズムの有効性は公約実現度が信頼性をもって公平に査定できることを'
-    '前提とする。公約実現度の実証文献（Thomson et al., 2017）は実行可能性を支持するが、評価機関の'
-    '実装は制度設計と政治的独立性に関する問題を提起する。'
+doc.add_heading('6.3 \u9650\u754c', level=2)
+add_text_para(
+    '\u3044\u304f\u3064\u304b\u306e\u9650\u754c\u3092\u8a8d\u8b58\u3059\u308b\u5fc5\u8981\u304c\u3042\u308b\u3002\u7b2c\u4e00\u306b\u3001\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u7d50\u679c\u306f\u5019\u88dc\u8005\u30bf\u30a4\u30d7\u3068\u6709\u6a29\u8005\u884c\u52d5\u306b'
+    '\u95a2\u3059\u308b\u69d8\u5f0f\u5316\u3055\u308c\u305f\u4eee\u5b9a\u306b\u4f9d\u5b58\u3059\u308b\u3002\u7b2c\u4e8c\u306b\u3001\u8a55\u4fa1\u30e1\u30ab\u30cb\u30ba\u30e0\u306e\u6709\u52b9\u6027\u306f\u516c\u7d04\u5b9f\u73fe\u5ea6\u304c\u4fe1\u983c\u6027\u3092\u3082\u3063\u3066'
+    '\u516c\u5e73\u306b\u67fb\u5b9a\u3067\u304d\u308b\u3053\u3068\u3092\u524d\u63d0\u3068\u3059\u308b\u3002\u516c\u7d04\u5b9f\u73fe\u5ea6\u306e\u5b9f\u8a3c\u6587\u732e [10]\u306f\u5b9f\u884c\u53ef\u80fd\u6027\u3092\u652f\u6301\u3059\u308b\u304c\u3001'
+    '\u8a55\u4fa1\u6a5f\u95a2\u306e\u5b9f\u88c5\u306f\u5236\u5ea6\u8a2d\u8a08\u3068\u653f\u6cbb\u7684\u72ec\u7acb\u6027\u306b\u95a2\u3059\u308b\u554f\u984c\u3092\u63d0\u8d77\u3059\u308b\u3002'
 )
-doc.add_paragraph(
-    '第三に、Gibbard-Satterthwaiteの精神に基づくTATSUKIの完全な耐戦略性の特性評価は行っていない。'
-    '敵対的GA分析はロバスト性の経験的証拠を提供するが、TATSUKIメカニズム族に対する完全な不可能性'
-    'または可能性の結果は重要な未解決問題として残る。第四に、TATSUKIと既存の制度的特徴（連邦制、'
-    '連立政権、任期制限）との相互作用はモデル化されておらず、追加的な複雑性を導入する可能性が高い。'
+add_text_para(
+    '\u7b2c\u4e09\u306b\u3001Gibbard-Satterthwaite\u306e\u7cbe\u795e\u306b\u57fa\u3065\u304fTATSUKI\u306e\u5b8c\u5168\u306a\u8010\u6226\u7565\u6027\u306e\u7279\u6027\u8a55\u4fa1\u306f\u884c\u3063\u3066\u3044\u306a\u3044 [18, 19]\u3002'
+    '\u6575\u5bfe\u7684GA\u5206\u6790\u306f\u30ed\u30d0\u30b9\u30c8\u6027\u306e\u7d4c\u9a13\u7684\u8a3c\u62e0\u3092\u63d0\u4f9b\u3059\u308b\u304c\u3001TATSUKI\u30e1\u30ab\u30cb\u30ba\u30e0\u65cf\u306b\u5bfe\u3059\u308b\u5b8c\u5168\u306a\u4e0d\u53ef\u80fd\u6027'
+    '\u307e\u305f\u306f\u53ef\u80fd\u6027\u306e\u7d50\u679c\u306f\u91cd\u8981\u306a\u672a\u89e3\u6c7a\u554f\u984c\u3068\u3057\u3066\u6b8b\u308b\u3002'
 )
 
-doc.add_heading('6.4 選挙参加奨励の非対称性', level=2)
-doc.add_paragraph(
-    'TATSUKIの提案の背景にあるより広範な動機について明示的に述べる必要がある。多くの民主主義国家に'
-    'おいて、行政による選挙参加啓発キャンペーンは、市民に投票権（選挙権）の行使を促すことにほぼ'
-    '専念している。一方で、立候補する権利（被選挙権）の行使を市民に奨励する制度的努力は驚くほど'
-    '少ない。この非対称性は注目に値する。両者の権利はほとんどの民主主義体制において憲法上等しく'
-    '保障されているにもかかわらず、公的言説と行政実務は前者を市民的義務として扱い、後者をほぼ'
-    '無視している。'
+doc.add_heading('6.4 \u9078\u6319\u53c2\u52a0\u5968\u52b1\u306e\u975e\u5bfe\u79f0\u6027', level=2)
+add_text_para(
+    'TATSUKI\u306e\u63d0\u6848\u306e\u80cc\u666f\u306b\u3042\u308b\u3088\u308a\u5e83\u7bc4\u306a\u52d5\u6a5f\u306b\u3064\u3044\u3066\u660e\u793a\u7684\u306b\u8ff0\u3079\u308b\u5fc5\u8981\u304c\u3042\u308b\u3002\u591a\u304f\u306e\u6c11\u4e3b\u4e3b\u7fa9\u56fd\u5bb6\u306b'
+    '\u304a\u3044\u3066\u3001\u884c\u653f\u306b\u3088\u308b\u9078\u6319\u53c2\u52a0\u5553\u767a\u30ad\u30e3\u30f3\u30da\u30fc\u30f3\u306f\u3001\u5e02\u6c11\u306b\u6295\u7968\u6a29\uff08\u9078\u6319\u6a29\uff09\u306e\u884c\u4f7f\u3092\u4fc3\u3059\u3053\u3068\u306b\u307b\u307c'
+    '\u5c02\u5ff5\u3057\u3066\u3044\u308b\u3002\u4e00\u65b9\u3067\u3001\u7acb\u5019\u88dc\u3059\u308b\u6a29\u5229\uff08\u88ab\u9078\u6319\u6a29\uff09\u306e\u884c\u4f7f\u3092\u5e02\u6c11\u306b\u5968\u52b1\u3059\u308b\u5236\u5ea6\u7684\u52aa\u529b\u306f\u9a5a\u304f\u307b\u3069'
+    '\u5c11\u306a\u3044\u3002\u3053\u306e\u975e\u5bfe\u79f0\u6027\u306f\u6ce8\u76ee\u306b\u5024\u3059\u308b\u3002'
 )
-doc.add_paragraph(
-    'この不均衡は、現代の代議制民主主義のより深い構造的限界を反映し、また強化している。すなわち、'
-    '市民が政治的意思を表明できるのは投票の瞬間に限られ、それは通常数年に一度しか訪れない。選挙と'
-    '選挙の間、市民が政策に影響を及ぼす公式なチャネルは極めて限定的である。現行制度はこのように、'
-    '民主的参加を継続的・能動的なガバナンスへの関与ではなく、周期的・受動的な選択行為として暗黙の'
-    'うちに位置づけている。'
-)
-doc.add_paragraph(
-    'TATSUKIはこの問題に二つの方向から対処する。第一に、選挙で選ばれた公職者の公約実現度を任期を'
-    '通じて評価する継続的な説明責任ループを導入することで、民主的関与の時間的範囲を選挙日を超えて'
-    '拡張する。投票時に表明された市民の選好は、パフォーマンスを測定する拘束的なベンチマークとして'
-    '引き継がれ、選挙における声に永続的な制度的存在感を与える。第二に、信任係数メカニズムを通じて'
-    '立候補の帰結をより透明かつ構造化することで、TATSUKIは立候補への参入障壁を低下させる可能性がある。'
-    '選挙的説明責任を規律するルールが明示的かつパフォーマンスに基づくものである場合、公職に立候補する'
-    '決断はより予測可能となり、現職者の優位性や政党のゲートキーピングへの依存度が低下する。この意味で、'
-    'TATSUKIは被選挙権が選挙権と同等の制度的奨励に値するという規範的立場と整合する。'
+add_text_para(
+    'TATSUKI\u306f\u3053\u306e\u554f\u984c\u306b\u4e8c\u3064\u306e\u65b9\u5411\u304b\u3089\u5bfe\u51e6\u3059\u308b\u3002\u7b2c\u4e00\u306b\u3001\u9078\u6319\u3067\u9078\u3070\u308c\u305f\u516c\u8077\u8005\u306e\u516c\u7d04\u5b9f\u73fe\u5ea6\u3092\u4efb\u671f\u3092'
+    '\u901a\u3058\u3066\u8a55\u4fa1\u3059\u308b\u7d99\u7d9a\u7684\u306a\u8aac\u660e\u8cac\u4efb\u30eb\u30fc\u30d7\u3092\u5c0e\u5165\u3059\u308b\u3053\u3068\u3067\u3001\u6c11\u4e3b\u7684\u95a2\u4e0e\u306e\u6642\u9593\u7684\u7bc4\u56f2\u3092\u9078\u6319\u65e5\u3092\u8d85\u3048\u3066'
+    '\u62e1\u5f35\u3059\u308b\u3002\u7b2c\u4e8c\u306b\u3001\u4fe1\u4efb\u4fc2\u6570\u30e1\u30ab\u30cb\u30ba\u30e0\u3092\u901a\u3058\u3066\u7acb\u5019\u88dc\u306e\u5e30\u7d50\u3092\u3088\u308a\u900f\u660e\u304b\u3064\u69cb\u9020\u5316\u3059\u308b\u3053\u3068\u3067\u3001'
+    'TATSUKI\u306f\u7acb\u5019\u88dc\u3078\u306e\u53c2\u5165\u969c\u58c1\u3092\u4f4e\u4e0b\u3055\u305b\u308b\u53ef\u80fd\u6027\u304c\u3042\u308b\u3002'
 )
 
-doc.add_heading('6.5 今後の方向性', level=2)
-doc.add_paragraph(
-    'いくつかの拡張が調査に値する。各影響関数クラスのインセンティブ両立性条件の形式的特性評価は'
-    '理論的基盤を強化するだろう。Liquid DemocracyやQuadratic Votingとの統合は組み合わせメカニズム'
-    '設計を通じて探索可能である。第5.5節で提示した実証的較正は、比較政党公約データベースの追加国に'
-    '拡張可能であり、国際比較シミュレーション実験が可能となる。市町村や組織の文脈での前向きフィールド'
-    '実験は、TATSUKIの行動予測を検証できる。最後に、評価プロセスに市民議会を組み込む熟議的'
-    '拡張は、テクノクラート的査定への懸念に対処し得る。'
+doc.add_heading('6.5 \u4eca\u5f8c\u306e\u65b9\u5411\u6027', level=2)
+add_text_para(
+    '\u3044\u304f\u3064\u304b\u306e\u62e1\u5f35\u304c\u8abf\u67fb\u306b\u5024\u3059\u308b\u3002\u5404\u5f71\u97ff\u95a2\u6570\u30af\u30e9\u30b9\u306e\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u4e21\u7acb\u6027\u6761\u4ef6\u306e\u5f62\u5f0f\u7684\u7279\u6027\u8a55\u4fa1\u306f'
+    '\u7406\u8ad6\u7684\u57fa\u76e4\u3092\u5f37\u5316\u3059\u308b\u3060\u308d\u3046\u3002Liquid Democracy\u3084Quadratic Voting\u3068\u306e\u7d71\u5408\u306f\u7d44\u307f\u5408\u308f\u305b\u30e1\u30ab\u30cb\u30ba\u30e0'
+    '\u8a2d\u8a08\u3092\u901a\u3058\u3066\u63a2\u7d22\u53ef\u80fd\u3067\u3042\u308b\u3002\u7b2c5.5\u7bc0\u3067\u63d0\u793a\u3057\u305f\u5b9f\u8a3c\u7684\u8f03\u6b63\u306f\u3001\u6bd4\u8f03\u653f\u515a\u516c\u7d04\u30c7\u30fc\u30bf\u30d9\u30fc\u30b9\u306e\u8ffd\u52a0\u56fd\u306b'
+    '\u62e1\u5f35\u53ef\u80fd\u3067\u3042\u308b\u3002\u6c11\u4e3b\u7684\u30ac\u30d0\u30ca\u30f3\u30b9\u306e\u305f\u3081\u306eAI\u652f\u63f4\u30e1\u30ab\u30cb\u30ba\u30e0\u8a2d\u8a08\u306b\u95a2\u3059\u308b\u65b0\u305f\u306a\u6587\u732e [30]\u306f\u3001\u8a08\u7b97\u30c4\u30fc\u30eb\u304cTATSUKI\u306e\u8a55\u4fa1'
+    '\u304a\u3088\u3073\u8f03\u6b63\u30d7\u30ed\u30bb\u30b9\u3092\u3055\u3089\u306b\u5f37\u5316\u3067\u304d\u308b\u53ef\u80fd\u6027\u3092\u793a\u5506\u3057\u3066\u3044\u308b\u3002'
 )
 
 # ══════════════════════════════════════════════
 # 7. 結論
 # ══════════════════════════════════════════════
-doc.add_heading('7. 結論（Conclusion）', level=1)
-doc.add_paragraph(
-    '本論文では、計測された公約実現度に候補者の信任係数を連動させることで回顧的説明責任を'
-    '制度化する新しい選挙メカニズムであるTATSUKI（Trust-Adjusted Transparent Scoring with Unified '
-    'Knowledge Integration）を導入した。Polimeterプロジェクトの実証的公約実現データおよびThomson et al.（2017）の'
-    '国際ベンチマークで較正したODD準拠のエージェントベースモデルにより、TATSUKIが説明責任水準を向上させ、'
-    '誠実な候補者を選択し、敵対的攻略に対してロバスト性を示すことを実証した。カナダ連邦3議会期の'
-    '実世界データを用いた反事実分析により、TATSUKIが観察された実現パターンと整合する安定的で'
-    '解釈可能な信任軌跡を生成することが確認された。メカニズムは影響関数'
-    'の族によりパラメータ化され、凹関数とシグモイド仕様がインセンティブ強度と操作耐性の最良の'
-    'トレードオフを提供する。信任調整を有権者レベルではなく候補者レベルに定式化することで、TATSUKIは'
-    '一人一票原則との整合性を維持しつつ、パフォーマンスに基づく選挙的影響力の原理的なメカニズムを'
-    '導入するものである。'
+doc.add_heading('7. \u7d50\u8ad6\uff08Conclusion\uff09', level=1)
+add_text_para(
+    '\u672c\u8ad6\u6587\u3067\u306f\u3001\u8a08\u6e2c\u3055\u308c\u305f\u516c\u7d04\u5b9f\u73fe\u5ea6\u306b\u5019\u88dc\u8005\u306e\u4fe1\u4efb\u4fc2\u6570\u3092\u9023\u52d5\u3055\u305b\u308b\u3053\u3068\u3067\u56de\u9867\u7684\u8aac\u660e\u8cac\u4efb\u3092'
+    '\u5236\u5ea6\u5316\u3059\u308b\u65b0\u3057\u3044\u9078\u6319\u30e1\u30ab\u30cb\u30ba\u30e0\u3067\u3042\u308bTATSUKI\uff08Trust-Adjusted Transparent Scoring with Unified '
+    'Knowledge Integration\uff09\u3092\u5c0e\u5165\u3057\u305f\u3002Polimeter\u30d7\u30ed\u30b8\u30a7\u30af\u30c8\u306e\u5b9f\u8a3c\u7684\u516c\u7d04\u5b9f\u73fe\u30c7\u30fc\u30bf\u304a\u3088\u3073Thomson et al. [10]\u306e'
+    '\u56fd\u969b\u30d9\u30f3\u30c1\u30de\u30fc\u30af\u3067\u8f03\u6b63\u3057\u305fODD\u6e96\u62e0\u306e\u30a8\u30fc\u30b8\u30a7\u30f3\u30c8\u30d9\u30fc\u30b9\u30e2\u30c7\u30eb\u306b\u3088\u308a\u3001TATSUKI\u304c\u8aac\u660e\u8cac\u4efb\u6c34\u6e96\u3092\u5411\u4e0a\u3055\u305b\u3001'
+    '\u8aa0\u5b9f\u306a\u5019\u88dc\u8005\u3092\u9078\u629e\u3057\u3001\u6575\u5bfe\u7684\u653b\u7565\u306b\u5bfe\u3057\u3066\u30ed\u30d0\u30b9\u30c8\u6027\u3092\u793a\u3059\u3053\u3068\u3092\u5b9f\u8a3c\u3057\u305f\u3002'
+    '\u30e1\u30ab\u30cb\u30ba\u30e0\u306f\u5f71\u97ff\u95a2\u6570\u306e\u65cf\u306b\u3088\u308a\u30d1\u30e9\u30e1\u30fc\u30bf\u5316\u3055\u308c\u3001\u51f9\u95a2\u6570\u3068\u30b7\u30b0\u30e2\u30a4\u30c9\u4ed5\u69d8\u304c\u30a4\u30f3\u30bb\u30f3\u30c6\u30a3\u30d6\u5f37\u5ea6\u3068'
+    '\u64cd\u4f5c\u8010\u6027\u306e\u6700\u826f\u306e\u30c8\u30ec\u30fc\u30c9\u30aa\u30d5\u3092\u63d0\u4f9b\u3059\u308b\u3002\u4fe1\u4efb\u8abf\u6574\u3092\u6709\u6a29\u8005\u30ec\u30d9\u30eb\u3067\u306f\u306a\u304f\u5019\u88dc\u8005\u30ec\u30d9\u30eb\u306b\u5b9a\u5f0f\u5316\u3059\u308b'
+    '\u3053\u3068\u3067\u3001TATSUKI\u306f\u4e00\u4eba\u4e00\u7968\u539f\u5247\u3068\u306e\u6574\u5408\u6027\u3092\u7dad\u6301\u3057\u3064\u3064\u3001\u30d1\u30d5\u30a9\u30fc\u30de\u30f3\u30b9\u306b\u57fa\u3065\u304f\u9078\u6319\u7684\u5f71\u97ff\u529b\u306e\u539f\u7406\u7684\u306a'
+    '\u30e1\u30ab\u30cb\u30ba\u30e0\u3092\u5c0e\u5165\u3059\u308b\u3082\u306e\u3067\u3042\u308b\u3002'
 )
+
+# ══════════════════════════════════════════════
+# データ可用性声明
+# ══════════════════════════════════════════════
+doc.add_heading('\u30c7\u30fc\u30bf\u53ef\u7528\u6027\u58f0\u660e\uff08Data Availability Statement\uff09', level=1)
+add_text_para(
+    '\u5b9f\u8a3c\u7684\u8f03\u6b63\u306b\u4f7f\u7528\u3057\u305fPolimeter\u30c7\u30fc\u30bf\u306fhttps://polimeter.org\u3067\u516c\u958b\u3055\u308c\u3066\u3044\u308b\u3002'
+    'Thomson et al. [10]\u306e\u56fd\u969b\u516c\u7d04\u5b9f\u73fe\u30c7\u30fc\u30bf\u306f\u516c\u958b\u8ad6\u6587\u306b\u542b\u307e\u308c\u308b\u3002'
+    '\u30b7\u30df\u30e5\u30ec\u30fc\u30b7\u30e7\u30f3\u30b3\u30fc\u30c9\u304a\u3088\u3073\u8f03\u6b63\u30b9\u30af\u30ea\u30d7\u30c8\u306f\u53d7\u7406\u5f8c\u306b\u516c\u958b\u30ea\u30dd\u30b8\u30c8\u30ea\u3067\u516c\u958b\u3059\u308b\u3002'
+)
+
+# ══════════════════════════════════════════════
+# 声明と宣言
+# ══════════════════════════════════════════════
+doc.add_heading('\u58f0\u660e\u3068\u5ba3\u8a00\uff08Statements and Declarations\uff09', level=1)
+
+p = doc.add_paragraph()
+r = p.add_run('\u7af6\u5408\u5229\u76ca\uff1a ')
+r.bold = True
+p.add_run('\u8457\u8005\u306f\u3001\u672c\u8ad6\u6587\u3067\u5831\u544a\u3055\u308c\u305f\u7814\u7a76\u306b\u5f71\u97ff\u3092\u4e0e\u3048\u305f\u53ef\u80fd\u6027\u306e\u3042\u308b\u65e2\u77e5\u306e\u7af6\u5408\u3059\u308b\u91d1\u92ad\u7684\u5229\u76ca\u307e\u305f\u306f\u500b\u4eba\u7684\u95a2\u4fc2\u304c\u306a\u3044\u3053\u3068\u3092\u5ba3\u8a00\u3059\u308b\u3002')
+
+p = doc.add_paragraph()
+r = p.add_run('\u52a9\u6210\uff1a ')
+r.bold = True
+p.add_run('\u672c\u7814\u7a76\u306f\u3001\u516c\u7684\u30fb\u5546\u696d\u7684\u30fb\u975e\u55b6\u5229\u30bb\u30af\u30bf\u30fc\u306e\u3044\u305a\u308c\u306e\u52a9\u6210\u6a5f\u95a2\u304b\u3089\u3082\u7279\u5b9a\u306e\u52a9\u6210\u3092\u53d7\u3051\u3066\u3044\u306a\u3044\u3002')
+
+p = doc.add_paragraph()
+r = p.add_run('\u502b\u7406\u58f0\u660e\uff1a ')
+r.bold = True
+p.add_run('\u672c\u7814\u7a76\u306f\u516c\u958b\u3055\u308c\u305f\u96c6\u7d04\u30c7\u30fc\u30bf\u306e\u307f\u3092\u4f7f\u7528\u3057\u3066\u304a\u308a\u3001\u4eba\u9593\u306e\u88ab\u9a13\u8005\u306f\u95a2\u4e0e\u3057\u3066\u3044\u306a\u3044\u3002\u502b\u7406\u5be9\u67fb\u306f\u4e0d\u8981\u3067\u3042\u308b\u3002')
 
 # ══════════════════════════════════════════════
 # 参考文献
 # ══════════════════════════════════════════════
-doc.add_heading('参考文献（References）', level=1)
+doc.add_heading('\u53c2\u8003\u6587\u732e\uff08References\uff09', level=1)
 
-refs = [
-    'Acemoglu, D., Golosov, M., & Tsyvinski, A. (2008). Political Economy of Mechanisms. Econometrica, 76(3), 619\u2013641.',
-    'Arrow, K. (1951). Social Choice and Individual Values. Yale University Press.',
-    'Baharad, R., Nitzan, S., & Segal-Halevi, E. (2022). One person, one weight: when is weighted voting democratic? Social Choice and Welfare, 59, 467\u2013493.',
-    'Barro, R. (1973). The control of politicians: an economic model. Public Choice, 14, 19\u201342.',
-    'Besley, T. (2006). Principled Agents? The Political Economy of Good Government. Oxford University Press.',
-    'Birch, L., & P\u00e9try, F. (2019). Assessing Justin Trudeau\u2019s Liberal Government: 353 Promises and a Mandate for Change. Les Presses de l\u2019Universit\u00e9 Laval.',
-    'Brill, M., Delemazure, T., George, A.-M., Lackner, M., & Schmidt-Kraepelin, U. (2022). Liquid Democracy with Ranked Delegations. In Proceedings of the AAAI Conference on Artificial Intelligence.',
-    'Bytzek, E., Dupont, J. C., Steffens, M. C., Knab, N., & Schneider, F. M. (2024). Do Election Pledges Matter? Politische Vierteljahresschrift, 66(4), 785\u2013804.',
-    'Christoff, Z., & Grossi, D. (2017). Binary Voting with Delegable Proxy. In Proceedings of TARK 2017.',
-    'Dasgupta, P., & Maskin, E. (2020). Strategy-Proofness, Independence of Irrelevant Alternatives, and Majority Rule. AER: Insights, 2(4), 459\u2013474.',
-    'Ferejohn, J. (1986). Incumbent Performance and Electoral Control. Public Choice, 50, 5\u201325.',
-    'Fiorina, M. P. (1981). Retrospective Voting in American National Elections. Yale University Press.',
-    'Gibbard, A. (1973). Manipulation of voting schemes. Econometrica, 41, 587\u2013601.',
-    'Grimm, V., Railsback, S. F., Vincenot, C. E., et al. (2020). The ODD Protocol for Describing Agent-Based and Other Simulation Models: A Second Update. Journal of Artificial Societies and Social Simulation, 23(2), 7.',
-    'Hanson, R. (2013). Shall We Vote on Values, But Bet on Beliefs? Journal of Political Philosophy, 21(2), 151\u2013173.',
-    'Healy, A., & Malhotra, N. (2013). Retrospective Voting Reconsidered. Annual Review of Political Science, 16, 285\u2013306.',
-    'Kahng, A., Mackenzie, S., & Procaccia, A. D. (2021). Liquid Democracy: An Algorithmic Perspective. Journal of Artificial Intelligence Research, 70, 1223\u20131252.',
-    'Key, V. O. (1966). The Responsible Electorate. Harvard University Press.',
-    'Koster, R., et al. (2022). Human-centred mechanism design with Democratic AI. Nature Human Behaviour, 6, 1398\u20131407.',
-    'Lalley, S., & Weyl, E. G. (2018). Quadratic Voting: How Mechanism Design Can Radicalize Democracy. AEA Papers and Proceedings, 1(1).',
-    'Laver, M. (2011). Party Competition: An Agent-Based Model. Princeton University Press.',
-    'Manin, B., Przeworski, A., & Stokes, S. C. (1999). Elections and Representation. In Democracy, Accountability, and Representation. Cambridge University Press.',
-    'Mitra, A. (2022). Agent-based Simulation of District-based Elections. arXiv:2205.14400.',
-    'Naurin, E., Royed, T. J., & Thomson, R. (Eds.). (2020). Party Mandates and Democracy. University of Michigan Press.',
-    'P\u00e9try, F., & Collette, B. (2009). Measuring How Political Parties Keep Their Promises. In Do They Walk Like They Talk? Springer.',
-    'P\u00e9try, F., & Fortier-Chouinard, A. (2024). Polimeter: An Independent Pledge Tracking Initiative. Centre for the Study of Democratic Citizenship, Universit\u00e9 Laval. https://polimeter.org',
-    'Posner, E. A., & Weyl, E. G. (2018). Radical Markets: Uprooting Capitalism and Democracy for a Just Society. Princeton University Press.',
-    'Satterthwaite, M. (1975). Strategy-proofness and Arrow\'s conditions. Journal of Economic Theory, 10, 187\u2013217.',
-    'Thomson, R., Royed, T., Naurin, E., et al. (2017). The Fulfillment of Parties\' Election Pledges: A Comparative Study. American Journal of Political Science, 61(3), 527\u2013542.',
-    'Tomlinson, K., Namjoshi, T., Ugander, J., & Kleinberg, J. (2024). Replicating Electoral Success. arXiv:2402.17109.',
-]
-
-for ref in refs:
-    p = doc.add_paragraph(ref)
+for i, ref in enumerate(REFS_ORDERED, 1):
+    p = doc.add_paragraph()
+    r = p.add_run(f'[{i}] ')
+    r.bold = True
+    p.add_run(ref)
     p.paragraph_format.left_indent = Cm(1.0)
     p.paragraph_format.first_line_indent = Cm(-1.0)
     p.paragraph_format.space_after = Pt(3)
