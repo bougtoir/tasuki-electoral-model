@@ -150,12 +150,19 @@ def add_para(text, bold=False, italic=False, align=None, size=None, space_after=
     return p
 
 
+def _is_citation(s):
+    """Return True if s looks like a citation reference (e.g. [1], [5, 6], [1-3]) not math interval [0, 1]."""
+    inner = s[1:-1].strip()
+    nums = re.findall(r'\d+', inner)
+    return len(nums) > 0 and all(int(n) >= 1 for n in nums)
+
+
 def add_text_para(text):
     """Add paragraph with inline [N] citation references rendered as superscript."""
     p = doc.add_paragraph()
     parts = re.split(r'(\[[0-9, \u2013-]+\])', text)
     for part in parts:
-        if re.match(r'^\[[0-9, \u2013-]+\]$', part):
+        if re.match(r'^\[[0-9, \u2013-]+\]$', part) and _is_citation(part):
             run = p.add_run(part)
             run.font.superscript = True
             run.font.size = Pt(9)
