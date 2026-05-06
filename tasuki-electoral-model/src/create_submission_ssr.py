@@ -65,10 +65,22 @@ def create_cover_letter():
         'evolutionary candidate-type selection, and adversarial robustness.',
 
         # ── Why this paper is needed now ──
-        'We believe this paper addresses a timely gap in the literature. Three converging trends '
-        'make the present work both feasible and urgent. First, public trust in democratic '
+        'We believe this paper addresses a timely gap in the literature. A fundamental structural '
+        'limitation of contemporary representative democracy is that citizens can express their '
+        'political will only at the moment of voting\u2014typically once every four to five years. '
+        'Between elections, voters possess no institutional mechanism to ensure that the promises '
+        'motivating their choice are honored. This temporal mismatch between intermittent democratic '
+        'feedback and continuous governance is arguably the central structural weakness of modern '
+        'representative democracy, and existing reform proposals do not fully resolve it: quadratic '
+        'voting enriches preference expression at election time but provides no post-election '
+        'accountability; liquid democracy enables continuous re-delegation but does not evaluate '
+        'whether delegated decisions align with voters\u2019 preferences; futarchy operates continuously '
+        'via prediction markets but replaces democratic decision-making with market-based selection.',
+
+        'Three converging trends now make it possible to address this gap. '
+        'First, public trust in democratic '
         'institutions has declined to historic lows across established democracies (OECD, 2022; '
-        'Edelman Trust Barometer, 2024), creating demand for institutional mechanisms that '
+        'Edelman Trust Barometer, 2024), creating urgent demand for institutional mechanisms that '
         'demonstrably link electoral promises to consequences. Second, the empirical infrastructure '
         'for systematic pledge tracking has matured: the Polimeter project now covers multiple '
         'countries and parliamentary terms, and the Comparative Party Pledges Database (Thomson '
@@ -80,13 +92,14 @@ def create_cover_letter():
         'were formulated.',
 
         # ── Comparative positioning ──
-        'The manuscript positions TATSUKI explicitly within the landscape of recent democratic '
-        'reform proposals, including quadratic voting, liquid democracy, futarchy, and '
-        'computational democratic mechanism design. A structured comparison (Table 1 in the '
-        'manuscript) shows that existing proposals address different democratic deficits\u2014'
-        'preference expression, delegation flexibility, information aggregation, or policy '
-        'optimization\u2014but none institutionalizes the retrospective accountability relationship '
-        'between pre-election pledges and post-election performance. TATSUKI is designed to '
+        'The manuscript positions TATSUKI explicitly within this landscape. '
+        'A structured comparison (Table 1 in the '
+        'manuscript) shows that existing proposals\u2014quadratic voting, liquid democracy, futarchy, '
+        'and computational democratic mechanism design\u2014address different democratic deficits '
+        'but none institutionalizes the retrospective accountability relationship '
+        'between pre-election pledges and post-election performance, and none transforms the '
+        'voter\u2019s one-time electoral choice into a continuous institutional commitment. '
+        'TATSUKI is designed to '
         'fill precisely this gap, and is the only proposal that combines OPOV-compatible design, '
         'empirical calibration with large-scale pledge data, and adversarial robustness testing.',
 

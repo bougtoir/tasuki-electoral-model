@@ -993,38 +993,56 @@ doc.add_paragraph(
     'likely introduces additional complexity.'
 )
 
-doc.add_heading('6.5 The Asymmetry of Electoral Participation Encouragement', level=2)
+doc.add_heading('6.5 The Temporal Democracy Deficit', level=2)
 doc.add_paragraph(
-    'A broader motivation underlying the TATSUKI proposal deserves explicit articulation. '
-    'In many democracies, government-sponsored electoral participation campaigns focus almost '
-    'exclusively on encouraging citizens to exercise their right to vote\u2014that is, the suffrage '
-    'right. Remarkably little institutional effort is directed toward encouraging citizens to '
-    'exercise their right to stand for election\u2014the candidacy right (passive suffrage). '
-    'This asymmetry is striking: both rights are constitutionally guaranteed in most democratic '
-    'systems, yet public discourse and administrative practice treat the former as a civic duty '
-    'while largely neglecting the latter.'
-)
-doc.add_paragraph(
-    'This imbalance reflects and reinforces a deeper structural limitation of contemporary '
-    'representative democracy: citizens can express their political will only at the moment of '
+    'A fundamental structural limitation of contemporary representative democracy deserves '
+    'explicit articulation: citizens can express their political will only at the moment of '
     'voting, typically once every several years. Between elections, the formal channels for '
-    'citizen influence on policy are extremely limited. The current system thus implicitly frames '
-    'democratic participation as a periodic, passive act of selection rather than a continuous, '
-    'active engagement with governance.'
+    'citizen influence on elected representatives are extremely limited. Voters choose a '
+    'candidate, but once the ballot is cast, they possess no institutional mechanism to ensure '
+    'that the promises motivating their choice are honored. The democratic feedback loop is, '
+    'in effect, intermittent\u2014operating at intervals of four to five years\u2014while governance '
+    'is continuous. This temporal mismatch is arguably the central structural weakness of modern '
+    'representative democracy.'
 )
 doc.add_paragraph(
-    'TATSUKI addresses this concern from two directions. First, by introducing a continuous '
-    'accountability loop\u2014where elected officials are evaluated on pledge fulfillment throughout '
-    'their term\u2014the mechanism extends the temporal scope of democratic engagement beyond the '
-    'election day. Citizens\' expressed preferences at the ballot box carry forward as binding '
-    'benchmarks against which performance is measured, effectively giving their electoral voice '
-    'a lasting institutional presence. Second, by making the consequences of candidacy more '
-    'transparent and structured through the trust coefficient mechanism, TATSUKI may lower the '
-    'perceived barriers to candidacy. When the rules governing electoral accountability are '
-    'explicit and performance-based, the decision to stand for office becomes more predictable '
-    'and less dependent on incumbency advantages or party gatekeeping. In this sense, TATSUKI '
-    'aligns with the normative position that the right to stand for election deserves the same '
-    'institutional encouragement as the right to vote.'
+    'Recent electoral reform proposals address various democratic deficits, but none fully '
+    'resolves this temporal mismatch. Quadratic voting (Lalley & Weyl, 2018) enriches '
+    'preference expression at election time, but provides no mechanism for post-election '
+    'accountability: once votes are cast, the incentive structure terminates. Liquid democracy '
+    '(Brill et al., 2022) enables continuous re-delegation, but this addresses the question of '
+    'who decides, not whether decisions align with voters\' expressed preferences. Futarchy '
+    '(Hanson, 2013) operates continuously via prediction markets, but replaces democratic '
+    'decision-making with market-based policy selection, raising concerns about democratic '
+    'legitimacy. The computational approach of Koster et al. (2022) optimizes policies via '
+    'reinforcement learning, but centralizes agency in an algorithmic designer rather than '
+    'distributing it to citizens. In each case, the voter\u2019s voice remains confined to a '
+    'single moment\u2014the act of choosing\u2014without a structured mechanism to carry that voice '
+    'forward into the governance period.'
+)
+doc.add_paragraph(
+    'TATSUKI directly addresses this temporal democracy deficit. By requiring candidates to '
+    'declare weighted policy pledges before the election and institutionalizing systematic '
+    'third-party evaluation after the term, TATSUKI transforms the voter\u2019s one-time electoral '
+    'choice into a lasting institutional commitment. Citizens\' expressed preferences at the '
+    'ballot box carry forward as binding benchmarks against which performance is measured, '
+    'effectively giving their electoral voice a continuous institutional presence throughout '
+    'the governance period. The trust coefficient \u03c4 = \u03c9(S) encodes the result of this '
+    'ongoing accountability relationship, ensuring that a candidate\u2019s future electoral '
+    'prospects are shaped by demonstrated fulfillment of the promises that earned their mandate.'
+)
+doc.add_paragraph(
+    'This reframing also illuminates a related asymmetry in democratic participation '
+    'encouragement. In many democracies, government-sponsored campaigns focus almost '
+    'exclusively on encouraging citizens to exercise their right to vote (active suffrage). '
+    'Remarkably little institutional effort is directed toward encouraging citizens to '
+    'exercise their right to stand for election (passive suffrage). '
+    'Both rights are constitutionally guaranteed, yet public discourse treats the former as a '
+    'civic duty while largely neglecting the latter. '
+    'TATSUKI may contribute to correcting this imbalance: by making the consequences of '
+    'candidacy more transparent and performance-based through the trust coefficient mechanism, '
+    'the decision to stand for office becomes more predictable '
+    'and less dependent on incumbency advantages or party gatekeeping.'
 )
 
 doc.add_heading('6.6 Future Directions', level=2)
