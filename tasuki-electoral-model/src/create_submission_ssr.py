@@ -213,7 +213,7 @@ def create_title_page():
     p = doc.add_paragraph()
     run = p.add_run('Number of tables: ')
     run.bold = True
-    p.add_run('0')
+    p.add_run('1')
     p.paragraph_format.space_after = Pt(12)
 
     doc.add_paragraph('')
