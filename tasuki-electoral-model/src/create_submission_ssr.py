@@ -64,6 +64,32 @@ def create_cover_letter():
         'multi-generational electoral dynamics under this mechanism, examining equilibrium outcomes, '
         'evolutionary candidate-type selection, and adversarial robustness.',
 
+        # ── Why this paper is needed now ──
+        'We believe this paper addresses a timely gap in the literature. Three converging trends '
+        'make the present work both feasible and urgent. First, public trust in democratic '
+        'institutions has declined to historic lows across established democracies (OECD, 2022; '
+        'Edelman Trust Barometer, 2024), creating demand for institutional mechanisms that '
+        'demonstrably link electoral promises to consequences. Second, the empirical infrastructure '
+        'for systematic pledge tracking has matured: the Polimeter project now covers multiple '
+        'countries and parliamentary terms, and the Comparative Party Pledges Database (Thomson '
+        'et al., 2017) spans 20,000+ pledges across 12 countries\u2014making an accountability '
+        'mechanism grounded in measured fulfillment technically feasible at scale for the first '
+        'time. Third, computational social science methods\u2014particularly agent-based modeling '
+        'and adversarial testing\u2014now provide the tools to evaluate institutional reforms '
+        'before deployment, a capacity that was unavailable when classical accountability models '
+        'were formulated.',
+
+        # ── Comparative positioning ──
+        'The manuscript positions TATSUKI explicitly within the landscape of recent democratic '
+        'reform proposals, including quadratic voting, liquid democracy, futarchy, and '
+        'computational democratic mechanism design. A structured comparison (Table 1 in the '
+        'manuscript) shows that existing proposals address different democratic deficits\u2014'
+        'preference expression, delegation flexibility, information aggregation, or policy '
+        'optimization\u2014but none institutionalizes the retrospective accountability relationship '
+        'between pre-election pledges and post-election performance. TATSUKI is designed to '
+        'fill precisely this gap, and is the only proposal that combines OPOV-compatible design, '
+        'empirical calibration with large-scale pledge data, and adversarial robustness testing.',
+
         'We believe this work is particularly well-suited for Social Science Research for three reasons. '
         'First, the paper demonstrates a quantitative method\u2014agent-based simulation with genetic '
         'algorithm adversarial testing\u2014that cuts across political science, economics, and '
@@ -79,8 +105,9 @@ def create_cover_letter():
         'Key contributions include: (i) a formal specification of the TATSUKI mechanism with a family '
         'of influence functions; (ii) an ODD-protocol compliant ABM demonstrating TATSUKI\u2019s effects '
         'on accountability and candidate-type evolution; (iii) adversarial robustness analysis using '
-        'genetic algorithm search; and (iv) empirical calibration with counterfactual trust trajectory '
-        'analysis for a real-world minority government.',
+        'genetic algorithm search; (iv) empirical calibration with counterfactual trust trajectory '
+        'analysis for a real-world minority government; and (v) a systematic comparative analysis '
+        'positioning TATSUKI within the broader landscape of electoral reform proposals.',
 
         'The manuscript has not been published elsewhere and is not under consideration by any '
         'other journal. All authors have approved the manuscript and agree with its submission '

@@ -13,6 +13,7 @@ Changes from Electoral Studies version:
 from docx import Document
 from docx.shared import Inches, Pt, Cm, RGBColor
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.enum.table import WD_TABLE_ALIGNMENT
 import os
 
 FIGS = os.path.join(os.path.dirname(__file__), '..', 'output', 'figures')
@@ -210,23 +211,39 @@ doc.add_paragraph(
 # ══════════════════════════════════════════════
 doc.add_heading('2. Related Work', level=1)
 
+doc.add_paragraph(
+    'This section reviews five strands of literature that converge in the TATSUKI proposal: '
+    'retrospective voting theory, mechanism design, alternative electoral reforms, campaign pledge '
+    'fulfillment empirics, and agent-based models of elections. For each strand, we identify '
+    'specific theoretical or methodological gaps that TATSUKI is designed to address. '
+    'Section 2.6 synthesizes these comparisons in a structured summary.'
+)
+
 doc.add_heading('2.1 Retrospective Voting and Electoral Accountability', level=2)
 doc.add_paragraph(
     'The retrospective voting tradition, initiated by Key (1966) and formalized by Fiorina (1981), '
     'posits that voters evaluate incumbents based on past performance rather than prospective policy '
     'promises. Healy and Malhotra (2013) provide a comprehensive review, noting that voters are often '
     'myopic, weighting recent events disproportionately, and susceptible to irrelevant factors. '
-    'TATSUKI addresses these limitations by institutionalizing the retrospective evaluation process, '
+    'These systematic biases constitute a fundamental limitation: retrospective voting theory assumes '
+    'that voters perform the evaluation function, yet extensive evidence shows they do so poorly. '
+    'TATSUKI addresses this gap by institutionalizing the retrospective evaluation process, '
     'replacing subjective voter assessments with structured third-party evaluation of pre-declared '
-    'pledges.'
+    'pledges. The evaluation is thereby decoupled from voter cognition, mitigating myopia and '
+    'irrelevant-factor contamination.'
 )
 doc.add_paragraph(
     'Formal models of electoral accountability, notably Barro (1973) and Ferejohn (1986), frame the '
     'voter-politician relationship as a principal-agent problem. In these models, voters employ '
     'threshold strategies: re-elect the incumbent if performance exceeds a reservation utility, '
     'otherwise remove. Besley (2006) extends this framework to distinguish selection and disciplining '
-    'effects. TATSUKI generalizes the binary sanction of these models into a continuous trust '
-    'coefficient \u03c4 = \u03c9(S), providing finer-grained incentives for policy fulfillment.'
+    'effects. However, all these models share a critical structural limitation: the sanction is '
+    'binary (re-election vs. removal), and the evaluation criteria are implicit and unverifiable. '
+    'There is no mechanism for candidates to pre-commit to specific deliverables, nor for voters '
+    'to calibrate sanctions proportionally to fulfillment. '
+    'TATSUKI generalizes the binary sanction into a continuous trust '
+    'coefficient \u03c4 = \u03c9(S), providing finer-grained incentives, and introduces explicit '
+    'pledge declaration to make the principal-agent contract observable and verifiable.'
 )
 
 doc.add_heading('2.2 Mechanism Design and Social Choice Theory', level=2)
@@ -234,6 +251,9 @@ doc.add_paragraph(
     'Arrow\'s impossibility theorem (Arrow, 1951) and the Gibbard-Satterthwaite theorem (Gibbard, '
     '1973; Satterthwaite, 1975) establish fundamental limits on ranked-choice voting systems. '
     'Dasgupta and Maskin (2020) provide recent results on strategy-proofness under majority rule. '
+    'These classical results constrain the design space for preference aggregation rules, but they '
+    'are silent on mechanisms that operate on a different dimension: post-election performance '
+    'feedback. '
     'TATSUKI does not modify the preference aggregation rule itself but introduces an additional '
     'dimension\u2014dynamic trust weighting\u2014that operates upstream of the aggregation step. This '
     'situates TATSUKI outside the direct scope of classical impossibility results, though it raises '
@@ -241,46 +261,81 @@ doc.add_paragraph(
 )
 doc.add_paragraph(
     'Acemoglu, Golosov, and Tsyvinski (2008) study the political economy of mechanisms, analyzing '
-    'dynamic incentive provision for politicians. Their framework informs our treatment of '
-    'intertemporal incentives, though TATSUKI differs in making the incentive structure transparent '
-    'and parameterized through the publicly known influence function \u03c9(S).'
+    'dynamic incentive provision for politicians. Their framework provides the closest theoretical '
+    'antecedent to TATSUKI\'s intertemporal incentive structure. However, their analysis assumes '
+    'that the mechanism designer has access to a social welfare function and can commit to long-run '
+    'contracts\u2014assumptions that are difficult to satisfy in democratic settings where the '
+    '"mechanism designer" is the electorate itself. '
+    'TATSUKI differs in two respects: first, the incentive structure is transparent '
+    'and parameterized through the publicly known influence function \u03c9(S), enabling democratic '
+    'deliberation over the mechanism\'s parameters; second, the evaluation is based on observable '
+    'pledge fulfillment rather than unobservable social welfare.'
 )
 
 doc.add_heading('2.3 Alternative Electoral Reforms', level=2)
 doc.add_paragraph(
-    'Quadratic Voting (Lalley & Weyl, 2018; Posner & Weyl, 2018) allows voters to express '
-    'preference intensity by purchasing votes at quadratic cost, achieving approximate welfare '
-    'optimality under certain conditions. While QV modifies the voting act itself, TATSUKI modifies '
-    'the consequences of past voting outcomes. The two mechanisms are formally complementary and '
-    'could, in principle, be combined.'
+    'Several recent proposals modify the electoral process to address different democratic deficits. '
+    'Quadratic Voting (QV; Lalley & Weyl, 2018; Posner & Weyl, 2018) addresses the failure to '
+    'capture preference intensity by allowing voters to purchase additional votes at quadratic cost, '
+    'achieving approximate welfare optimality under certain conditions. QV modifies the voting act '
+    'itself (how preferences are expressed), while TATSUKI modifies the consequences of past voting '
+    'outcomes (how performance is sanctioned). Critically, QV provides no mechanism for holding '
+    'elected representatives accountable after the election; once votes are cast, the incentive '
+    'structure ends. TATSUKI extends the incentive horizon beyond election day. The two mechanisms '
+    'are formally complementary: QV could govern the election, while TATSUKI governs the subsequent '
+    'accountability cycle.'
 )
 doc.add_paragraph(
     'Liquid democracy (Brill et al., 2022; Christoff & Grossi, 2017; Kahng et al., 2021) enables '
     'transitive delegation of voting rights, dissolving the boundary between direct and '
-    'representative democracy. In contrast, TATSUKI preserves the representative structure while '
-    'strengthening accountability within it. Futarchy (Hanson, 2013) delegates policy decisions to '
-    'prediction markets, separating values from beliefs. TATSUKI implements a different separation: '
-    'pre-election pledges from post-election evaluation.'
+    'representative democracy. This addresses the representation problem (who decides?) but not '
+    'the accountability problem (what happens when representatives fail to deliver?). '
+    'In liquid democracy, a poorly performing delegate can be re-delegated, but there is no '
+    'structured mechanism for evaluating whether delegated decisions fulfilled voters\' expressed '
+    'preferences. TATSUKI preserves the representative structure while addressing this '
+    'accountability gap directly.'
 )
-# ── NEW: cite Koster et al. (2022) to fix orphan reference ──
+doc.add_paragraph(
+    'Futarchy (Hanson, 2013) delegates policy decisions to '
+    'prediction markets, separating values from beliefs. This approach relies on the efficient '
+    'market hypothesis to aggregate dispersed information, but faces practical challenges including '
+    'thin markets, manipulation vulnerability, and the difficulty of specifying welfare metrics '
+    'ex ante. TATSUKI implements a different separation\u2014pre-election pledges from post-election '
+    'evaluation\u2014that relies on observable pledge fulfillment rather than market-derived forecasts.'
+)
 doc.add_paragraph(
     'More recently, Koster et al. (2022) demonstrate the potential of computational approaches to '
     'democratic mechanism design, using reinforcement learning to discover tax policies preferred by '
-    'human participants. Their work underscores the value of simulation-based methods for evaluating '
-    'institutional designs before real-world implementation\u2014a methodological parallel to our '
-    'ABM-based approach.'
+    'human participants. Their work establishes that AI-assisted institutional design can outperform '
+    'conventional mechanisms in laboratory settings. However, their approach requires a centralized '
+    'computational agent to learn and implement policies\u2014a design that raises questions about '
+    'democratic legitimacy and transparency. TATSUKI complements this line of work by providing a '
+    'transparent, parameterized mechanism whose properties can be analyzed and debated before '
+    'implementation, while using simulation (ABM) rather than deployment to evaluate outcomes.'
 )
 
 doc.add_heading('2.4 Campaign Pledge Fulfillment', level=2)
 doc.add_paragraph(
-    'Thomson et al. (2017) conduct the most comprehensive comparative study of pledge fulfillment, '
+    'The empirical literature on pledge fulfillment has matured substantially over the past two '
+    'decades, creating a data infrastructure that was unavailable when earlier accountability '
+    'mechanisms were proposed. '
+    'Thomson et al. (2017) conduct the most comprehensive comparative study, '
     'analyzing over 20,000 pledges across 57 election campaigns in 12 countries. They find that '
     'governing parties fulfill a majority of pledges, with single-party governments achieving higher '
     'rates than coalitions. Naurin, Royed, and Thomson (2020) further document cross-national '
-    'variation. Bytzek et al. (2024) demonstrate that pledge fulfillment perceptions significantly '
-    'affect political trust. These findings provide the empirical foundation for TATSUKI\'s core '
-    'assumption that pledge fulfillment can be systematically measured and used as an institutional '
-    'input.'
+    'variation, establishing that pledge fulfillment is not an artifact of particular political '
+    'systems but a generalizable phenomenon.'
+)
+doc.add_paragraph(
+    'Bytzek et al. (2024) demonstrate that pledge fulfillment perceptions significantly '
+    'affect political trust, providing evidence for the behavioral link that TATSUKI '
+    'institutionalizes: citizens respond to perceived fulfillment, and this response can be '
+    'channeled through structured institutional mechanisms. '
+    'Crucially, the availability of systematic pledge-tracking infrastructure\u2014exemplified by '
+    'the Polimeter project (P\u00e9try & Fortier-Chouinard, 2024) and similar initiatives in '
+    'multiple countries\u2014means that the key empirical prerequisite for TATSUKI (reliable, '
+    'independent fulfillment measurement) is now technically feasible at scale. This convergence '
+    'of measurement capacity and institutional need is a central motivation for the present paper.'
 )
 
 doc.add_heading('2.5 Agent-Based Models of Electoral Systems', level=2)
@@ -289,8 +344,131 @@ doc.add_paragraph(
     'with strategic agents adapting to voter distributions. Mitra (2022) simulates district-based '
     'elections incorporating social and geographic influences. Tomlinson et al. (2024) employ '
     'replicator dynamics to study candidate positioning, finding that complex evolutionary dynamics '
-    'emerge even from simple behavioral heuristics. Our ABM builds on this tradition by introducing '
-    'the TATSUKI mechanism as the institutional context within which candidate strategies evolve.'
+    'emerge even from simple behavioral heuristics. '
+    'However, a common limitation of existing electoral ABMs is that they take the institutional '
+    'rules as fixed and study agent adaptation within those rules. None of these models uses the '
+    'ABM framework to evaluate a proposed institutional reform by simulating its dynamic effects '
+    'over multiple electoral cycles, nor do they incorporate adversarial robustness testing. '
+    'Our ABM builds on this tradition but serves a different purpose: rather than modeling behavior '
+    'within existing institutions, we use ABM as an institutional design evaluation tool, simulating '
+    'how TATSUKI changes the evolutionary landscape within which candidate strategies compete.'
+)
+
+doc.add_heading('2.6 Comparative Summary', level=2)
+doc.add_paragraph(
+    'Table 1 synthesizes the comparisons above along six dimensions that are central to the design '
+    'and evaluation of democratic accountability mechanisms. The table highlights that TATSUKI '
+    'occupies a distinctive position: it is the only proposal that (i) operates on the '
+    'accountability dimension (post-election performance feedback), (ii) maintains formal '
+    'compatibility with one-person-one-vote through candidate-centric trust, (iii) is grounded in '
+    'empirical calibration using large-scale pledge fulfillment data, and (iv) has been subjected '
+    'to systematic adversarial robustness testing.'
+)
+
+# ── Table 1: Comparative Summary ──
+
+table = doc.add_table(rows=8, cols=7)
+table.style = 'Table Grid'
+table.alignment = WD_TABLE_ALIGNMENT.CENTER
+
+headers = ['Dimension', 'Retrospective\nvoting', 'Quadratic\nVoting',
+           'Liquid\ndemocracy', 'Futarchy', 'Democratic\nAI', 'TATSUKI']
+for i, h in enumerate(headers):
+    cell = table.rows[0].cells[i]
+    cell.text = ''
+    run = cell.paragraphs[0].add_run(h)
+    run.bold = True
+    run.font.size = Pt(8)
+
+rows_data = [
+    ['What is\nmodified',
+     'Voter\ncognition\n(informal)',
+     'Vote counting\n(preference\nintensity)',
+     'Delegation\nstructure',
+     'Policy\nselection\n(markets)',
+     'Policy design\n(RL agent)',
+     'Accountability\nloop\n(trust coeff.)'],
+    ['Temporal\nfocus',
+     'Retrospective\n(single election)',
+     'Single\nelection',
+     'Continuous\n(re-delegation)',
+     'Prospective\n(prediction)',
+     'Prospective\n(optimization)',
+     'Retrospective +\ncontinuous\n(multi-term)'],
+    ['OPOV\ncompatible',
+     'Yes',
+     'Modified\n(cost-based)',
+     'Modified\n(delegation)',
+     'N/A\n(market-based)',
+     'N/A\n(centralized)',
+     'Yes\n(candidate-\ncentric)'],
+    ['Accountability\nmechanism',
+     'Subjective\nvoter judgment',
+     'None\n(post-election)',
+     'Re-delegation\n(no evaluation)',
+     'Market price\nconvergence',
+     'RL reward\nsignal',
+     'Third-party\nstructured\nevaluation'],
+    ['Empirical\ncalibration',
+     'Descriptive\n(observational)',
+     'Lab\nexperiments',
+     'Theoretical\nonly',
+     'Theoretical\nonly',
+     'Lab\nexperiments',
+     'Yes\n(Polimeter +\nThomson)'],
+    ['Manipulation\nresistance',
+     'Low\n(voter myopia)',
+     'Moderate\n(quadratic cost)',
+     'Low\n(delegation\nchains)',
+     'Moderate\n(market\nliquidity)',
+     'Unknown\n(centralized)',
+     'Tested\n(GA adversarial\nanalysis)'],
+    ['Pledge\nspecificity',
+     'Not required',
+     'Not required',
+     'Not required',
+     'Defined via\nmarket contract',
+     'Not required',
+     'Required\n(weighted\nportfolio)'],
+]
+
+for r_idx, row_data in enumerate(rows_data):
+    for c_idx, cell_text in enumerate(row_data):
+        cell = table.rows[r_idx + 1].cells[c_idx]
+        cell.text = ''
+        run = cell.paragraphs[0].add_run(cell_text)
+        run.font.size = Pt(8)
+        if c_idx == 0:
+            run.bold = True
+
+# Set column widths
+for row in table.rows:
+    row.cells[0].width = Inches(0.9)
+    for i in range(1, 7):
+        row.cells[i].width = Inches(0.85)
+
+cap = doc.add_paragraph()
+cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
+cap.paragraph_format.space_before = Pt(6)
+r = cap.add_run(
+    'Table 1. Comparative summary of TATSUKI and related approaches across six '
+    'design dimensions. TATSUKI uniquely combines retrospective accountability, '
+    'OPOV compatibility, empirical calibration, and adversarial robustness testing.'
+)
+r.italic = True
+r.font.size = Pt(10)
+cap.paragraph_format.space_after = Pt(12)
+
+doc.add_paragraph(
+    'The comparison reveals that existing proposals address different democratic deficits\u2014'
+    'preference expression (QV), delegation flexibility (liquid democracy), information aggregation '
+    '(futarchy), or computational policy optimization (Democratic AI)\u2014but none directly '
+    'institutionalizes the retrospective accountability relationship between pre-election promises '
+    'and post-election performance. This gap is particularly significant given the empirical '
+    'evidence that pledge fulfillment is both measurable (Thomson et al., 2017) and consequential '
+    'for political trust (Bytzek et al., 2024). TATSUKI is designed to fill precisely this gap. '
+    'Figure 1 visualizes this positioning, mapping each proposal along the dimensions of temporal '
+    'orientation (retrospective to prospective) and departure from one-person-one-vote.'
 )
 
 # Figure 6: Positioning
