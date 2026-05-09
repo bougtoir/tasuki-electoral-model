@@ -795,10 +795,10 @@ add_text_para(
 )
 add_text_para(
     'The sigmoid function exhibits the lowest overall exploitability (mean = 0.16), followed by '
-    'the concave function (0.16). The step function is most vulnerable (0.21), particularly to '
+    'the concave function (0.16). The convex function is moderately vulnerable across '
+    'all strategy types (mean = 0.21). The step function is most vulnerable (0.28), particularly to '
     'over-promising strategies, because its all-or-nothing threshold creates strong incentives for '
-    'strategic manipulation near the threshold. The convex function is moderately vulnerable across '
-    'all strategy types (mean = 0.28).'
+    'strategic manipulation near the threshold.'
 )
 add_text_para(
     'Figure 6(b) shows that adversarial search converges within approximately 100\u2013150 GA '
