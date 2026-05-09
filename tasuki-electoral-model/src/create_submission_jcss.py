@@ -54,27 +54,33 @@ def create_cover_letter():
         'Accountability-Driven Electoral Reform with Empirical Calibration" for consideration '
         'for publication in the Journal of Computational Social Science.',
 
-        'This paper introduces a novel computational framework for studying electoral '
+        'This paper introduces a novel computational framework for evaluating electoral '
         'accountability mechanisms. TATSUKI formalizes the informal retrospective voting '
         'mechanism into an institutional design in which candidates\u2019 pre-declared policy '
         'pledges are systematically evaluated post-term, yielding a continuous trust coefficient '
         'that modulates effective electoral support. Using an agent-based model (ABM) compliant '
         'with the ODD protocol, we simulate multi-generational electoral dynamics under this '
         'mechanism, examining equilibrium outcomes, evolutionary candidate-type selection, and '
-        'adversarial robustness via genetic algorithm search.',
+        'adversarial robustness via genetic-algorithm search. The model is calibrated against '
+        'empirical pledge-fulfillment data from two large-scale databases, bridging computational '
+        'modeling with real-world political data.',
 
-        'We believe this manuscript is particularly well-suited for JCSS for three reasons. '
+        'We believe this manuscript is particularly well-suited for JCSS for four reasons. '
         'First, the core methodology\u2014agent-based modeling with evolutionary dynamics and '
         'adversarial robustness testing via genetic algorithms\u2014represents a distinctly '
-        'computational approach to institutional design that aligns with the journal\u2019s '
-        'interdisciplinary scope. Second, the empirical calibration using large-scale pledge '
-        'fulfillment databases (the Polimeter project with 1,050 coded promises and the Thomson '
-        'et al. Comparative Party Pledges Database with 20,000+ pledges across 12 countries) '
-        'demonstrates the integration of computational modeling with real-world data that '
-        'characterizes leading work in computational social science. Third, the paper addresses '
-        'a fundamental structural problem in democratic governance\u2014the temporal mismatch '
-        'between intermittent electoral feedback and continuous governance\u2014through a '
-        'computational lens that invites both theoretical analysis and empirical validation.',
+        'computational approach to institutional design evaluation that aligns with the '
+        'journal\u2019s interdisciplinary scope. Second, the empirical calibration using '
+        'large-scale pledge-fulfillment databases (the Polimeter project with 1,050 coded '
+        'promises and the Thomson et al. Comparative Party Pledges Database with 20,000+ '
+        'pledges across 12 countries) demonstrates the integration of computational modeling '
+        'with real-world data that characterizes leading work in computational social science. '
+        'Third, the paper addresses a fundamental structural problem in democratic '
+        'governance\u2014the temporal mismatch between intermittent electoral feedback and '
+        'continuous governance\u2014through a computational lens that invites both theoretical '
+        'analysis and empirical validation. Fourth, the computational methodology '
+        'itself\u2014combining ABM, empirical calibration, and algorithmic adversarial '
+        'testing\u2014offers a replicable template for evaluating institutional design '
+        'proposals, which we believe will be of broad interest to the JCSS readership.'
 
         'The paper makes six specific contributions: (i) the formal specification of the TATSUKI '
         'mechanism and its family of influence functions; (ii) theoretical analysis of incentive '
@@ -155,6 +161,12 @@ def create_title_page():
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     run = p.add_run('ORCID: [0000-0000-0000-0000]')
+    run.font.size = Pt(11)
+    p.paragraph_format.space_after = Pt(6)
+
+    p = doc.add_paragraph()
+    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    run = p.add_run('Google Scholar: [URL]')
     run.font.size = Pt(11)
     p.paragraph_format.space_after = Pt(24)
 

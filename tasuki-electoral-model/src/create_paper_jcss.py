@@ -224,6 +224,11 @@ def add_text_para(text):
 
 
 def add_figure(path, caption, width=5.5):
+    """Insert figure with JCSS-compliant caption.
+
+    JCSS requires: 'Fig.' and figure number in bold, remainder in normal type,
+    no punctuation after the number, no punctuation at end of caption.
+    """
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
     p.paragraph_format.space_before = Pt(12)
@@ -231,9 +236,18 @@ def add_figure(path, caption, width=5.5):
     run.add_picture(path, width=Inches(width))
     cap = doc.add_paragraph()
     cap.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    r = cap.add_run(caption)
-    r.italic = True
-    r.font.size = Pt(10)
+    # Split caption into bold prefix ("Fig. N") and rest
+    import re as _re
+    m = _re.match(r'^(Fig\.\s*\d+)\s*(.*)', caption)
+    if m:
+        r_bold = cap.add_run(m.group(1) + ' ')
+        r_bold.bold = True
+        r_bold.font.size = Pt(10)
+        r_rest = cap.add_run(m.group(2).rstrip('.'))
+        r_rest.font.size = Pt(10)
+    else:
+        r = cap.add_run(caption.rstrip('.'))
+        r.font.size = Pt(10)
     cap.paragraph_format.space_before = Pt(6)
     cap.paragraph_format.space_after = Pt(12)
 
@@ -252,37 +266,39 @@ add_para(
 # Author information (single-blind: visible)
 add_para('[Author Name]',
          align=WD_ALIGN_PARAGRAPH.CENTER, size=12, space_after=4)
-add_para('[Institutional Affiliation]',
+add_para('[Institutional Affiliation, City, Country]',
          italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=11, space_after=4)
 add_para('[Email Address]',
          italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=10, space_after=4)
 add_para('ORCID: [0000-0000-0000-0000]',
+         italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=10, space_after=4)
+add_para('Google Scholar: [URL]',
          italic=True, align=WD_ALIGN_PARAGRAPH.CENTER, size=10, space_after=24)
 
 # ── Abstract ──
 doc.add_heading('Abstract', level=1)
 add_text_para(
-    'Democratic elections provide citizens with periodic opportunities to hold representatives '
-    'accountable, yet the binary nature of electoral sanctions (re-election versus removal) offers '
-    'only a coarse instrument for incentivizing policy fulfillment. We propose Trust-Adjusted '
-    'Transparent Scoring with Unified Knowledge Integration (TATSUKI), a novel electoral mechanism '
-    'in which candidates pre-declare weighted policy pledges, third-party evaluators assess '
-    'fulfillment at term end, and the resulting accountability score modulates a candidate-level '
-    'trust coefficient influencing effective electoral support in subsequent elections. Using an '
-    'agent-based model (ABM) compliant with the ODD protocol, we simulate multi-generational '
-    'electoral dynamics under TATSUKI across a family of influence functions. The model is calibrated '
-    'using empirical pledge fulfillment data from the Polimeter project (1,050 promises across three '
-    'Canadian parliamentary terms) and cross-national data from Thomson et al. [10]. '
-    'Results show that TATSUKI (i) significantly raises mean accountability scores, '
-    '(ii) induces evolutionary selection pressure favoring sincere candidates, (iii) exhibits '
-    'robustness to adversarial exploitation strategies discovered via genetic algorithm search, '
-    'and (iv) produces counterfactual trust trajectories consistent with empirical fulfillment '
-    'patterns. Sensitivity analysis reveals that concave and sigmoid influence functions offer the '
-    'best trade-off between incentive strength and resistance to manipulation.'
+    'How can computational methods inform the design of democratic institutions that promote '
+    'electoral accountability? We address this question by proposing Trust-Adjusted Transparent '
+    'Scoring with Unified Knowledge Integration (TATSUKI), a novel electoral mechanism in which '
+    'candidates pre-declare weighted policy pledges, independent evaluators assess fulfillment at '
+    'term end, and the resulting accountability score modulates a candidate-level trust coefficient '
+    'that influences effective electoral support in subsequent contests. We employ an agent-based '
+    'model (ABM) following the Overview, Design concepts, and Details (ODD) protocol to simulate '
+    'multi-generational electoral dynamics under TATSUKI across a parameterized family of influence '
+    'functions. The model is calibrated against empirical pledge-fulfillment data from the Polimeter '
+    'project (1,050 coded promises spanning three Canadian parliamentary terms) and validated against '
+    'cross-national benchmarks covering more than 20,000 pledges in 12 countries. Simulation results '
+    'demonstrate that TATSUKI (i) raises mean accountability scores by approximately 73%, '
+    '(ii) induces evolutionary selection pressure that favors sincere candidates, (iii) resists '
+    'adversarial exploitation strategies identified through genetic-algorithm-based stress testing, '
+    'and (iv) yields counterfactual trust trajectories consistent with observed fulfillment patterns. '
+    'Sensitivity analysis reveals that concave and sigmoid influence functions offer the most '
+    'favorable trade-off between incentive strength and manipulation resistance.'
 )
 
-add_para('Keywords: electoral accountability; agent-based model; computational social science; '
-         'mechanism design; pledge fulfillment; trust coefficient',
+add_para('Keywords: agent-based modeling; computational institutional design; electoral accountability; '
+         'pledge fulfillment; genetic algorithm robustness testing; mechanism design',
          italic=True, size=10, space_after=18)
 
 # ══════════════════════════════════════════════
@@ -291,56 +307,62 @@ add_para('Keywords: electoral accountability; agent-based model; computational s
 doc.add_heading('1. Introduction', level=1)
 
 add_text_para(
-    'Elections constitute the cornerstone of representative democracy, providing citizens with '
-    'periodic opportunities to evaluate and sanction their representatives [1]. The retrospective '
-    'voting literature has documented that voters do, in practice, condition their electoral choices '
-    'on perceived government performance [2\u20134]. However, this accountability mechanism operates '
-    'informally: voters must independently assess complex policy outcomes, and the electoral sanction '
-    'itself is binary\u2014re-election or removal\u2014regardless of the degree of policy fulfillment '
-    'or failure.'
+    'Computational social science increasingly enables researchers to evaluate institutional designs '
+    'before real-world implementation, using simulation, empirical calibration, and algorithmic '
+    'stress testing to explore emergent dynamics that resist closed-form analysis. Electoral '
+    'institutions constitute a particularly promising domain for such computational investigation: '
+    'elections involve heterogeneous agents, strategic interaction, temporal feedback loops, and '
+    'measurable outcomes\u2014features that lend themselves naturally to agent-based modeling (ABM). '
+    'Yet elections also remain constrained by a fundamental limitation: the accountability mechanism '
+    'linking representatives to voters is largely informal. Citizens evaluate incumbents based on '
+    'perceived performance [1\u20134], but the electoral sanction itself is binary\u2014re-election '
+    'or removal\u2014regardless of the degree of policy fulfillment.'
 )
 
 add_text_para(
     'Several innovative proposals have sought to improve democratic decision-making by modifying '
-    'the structure of elections. Quadratic Voting (QV) addresses the failure to capture preference '
-    'intensity by allowing voters to purchase additional votes at quadratic cost [5, 6]. Liquid '
-    'democracy enables flexible delegation of voting rights [7, 8]. Futarchy separates value '
-    'judgments from empirical beliefs by employing prediction markets for policy selection [9]. Each '
-    'of these approaches modifies a different dimension of the electoral process, yet none directly '
-    'institutionalizes the retrospective accountability relationship between campaign promises and '
-    'post-election performance.'
+    'the structure of elections. Quadratic Voting (QV) allows voters to express preference intensity '
+    'by purchasing additional votes at quadratic cost [5, 6]. Liquid democracy enables flexible '
+    'delegation of voting rights [7, 8]. Futarchy separates value judgments from empirical beliefs '
+    'by employing prediction markets for policy selection [9]. Each of these approaches modifies a '
+    'different dimension of the electoral process, yet none directly institutionalizes the '
+    'retrospective accountability relationship between campaign promises and post-election '
+    'performance.'
 )
 
 add_text_para(
-    'Meanwhile, the empirical literature on campaign pledge fulfillment has established that promise '
-    'keeping is both measurable and variable. Thomson et al. [10], analyzing over 20,000 pledges '
-    'across 12 countries, found that governing parties fulfill a majority of their promises, with '
-    'rates varying significantly based on institutional context. P\u00e9try and Collette [11] report '
-    'a cross-national average fulfillment rate of approximately 67%. These findings suggest that '
-    'systematic evaluation of pledge fulfillment is feasible and could serve as the empirical '
-    'foundation for an institutionalized accountability mechanism.'
+    'Crucially, a growing empirical literature has established that campaign pledge fulfillment is '
+    'both measurable and variable\u2014a prerequisite for any computational accountability '
+    'mechanism. Thomson et al. [10], analyzing over 20,000 pledges across 12 countries, found that '
+    'governing parties fulfill a majority of their promises, with rates varying significantly by '
+    'institutional context. P\u00e9try and Collette [11] report a cross-national average fulfillment '
+    'rate of approximately 67%. These findings suggest that systematic pledge evaluation is feasible '
+    'and could provide the empirical foundation for a computationally grounded accountability '
+    'mechanism.'
 )
 
 add_text_para(
     'In this paper, we propose Trust-Adjusted Transparent Scoring with Unified Knowledge Integration '
     '(TATSUKI), an electoral mechanism that bridges the gap between informal retrospective voting and '
-    'formal institutional design. Under TATSUKI, candidates pre-declare a weighted portfolio of policy '
-    'pledges at election time, an independent evaluation body assesses fulfillment at the end of the '
-    'term, and the resulting accountability score is transformed via an influence function into a trust '
-    'coefficient that modulates the candidate\'s effective electoral support in subsequent elections. '
-    'Crucially, we frame this adjustment as a candidate-level trust coefficient rather than a '
-    'modification of individual voter weights, thereby maintaining compatibility with the '
-    'one-person-one-vote principle.'
+    'formal institutional design. Under TATSUKI, candidates pre-declare a weighted portfolio of '
+    'policy pledges at election time, an independent evaluation body assesses fulfillment at the end '
+    'of the term, and the resulting accountability score is transformed via an influence function '
+    'into a trust coefficient that modulates the candidate\'s effective electoral support in '
+    'subsequent elections. The trust adjustment attaches to the candidate rather than to individual '
+    'voters, thereby maintaining compatibility with the one-person-one-vote principle.'
 )
 
 add_text_para(
     'We formalize TATSUKI as a family of mechanisms parameterized by the choice of influence function '
-    '\u03c9(S), and employ agent-based modeling (ABM)\u2014a computational approach well-suited to '
-    'exploring emergent dynamics in complex social systems\u2014to investigate the system\'s dynamic '
-    'properties. Following the ODD protocol [12], we simulate multi-generational electoral '
+    '\u03c9(S) and employ agent-based modeling\u2014a computational approach particularly well-suited '
+    'to exploring emergent dynamics in complex social systems\u2014to investigate the system\'s '
+    'dynamic properties. Following the ODD protocol [12], we simulate multi-generational electoral '
     'competition among heterogeneous candidate types (sincere, populist, and strategic-deceptive) and '
     'examine equilibrium outcomes, evolutionary dynamics, and robustness to adversarial exploitation '
-    'via genetic algorithm search. Our contributions are as follows:'
+    'discovered through genetic-algorithm search. The computational methodology itself constitutes a '
+    'contribution: we demonstrate how ABM, empirical calibration, and algorithmic adversarial '
+    'testing can be integrated to evaluate proposed institutional designs before real-world '
+    'implementation. Our specific contributions are as follows:'
 )
 
 # Numbered contributions
@@ -441,14 +463,15 @@ add_text_para(
 
 doc.add_heading('2.5 Agent-Based Models of Electoral Systems', level=2)
 add_text_para(
-    'Agent-based models (ABMs) have been widely applied to electoral dynamics, leveraging '
-    'computational simulation to explore emergent phenomena in complex social systems. '
-    'Laver [25] models party competition '
-    'with strategic agents adapting to voter distributions. Mitra [26] simulates district-based '
-    'elections incorporating social and geographic influences. Tomlinson et al. [27] employ '
-    'replicator dynamics to study candidate positioning, finding that complex evolutionary dynamics '
-    'emerge even from simple behavioral heuristics. Our ABM builds on this tradition by introducing '
-    'the TATSUKI mechanism as the institutional context within which candidate strategies evolve.'
+    'Agent-based models have been widely applied to electoral dynamics, leveraging computational '
+    'simulation to explore emergent phenomena in complex social systems. Laver [25] models party '
+    'competition with strategic agents adapting to voter distributions. Mitra [26] simulates '
+    'district-based elections incorporating social and geographic influences. Tomlinson et al. [27] '
+    'employ replicator dynamics to study candidate positioning, finding that complex evolutionary '
+    'dynamics emerge even from simple behavioral heuristics. Our ABM builds on this computational '
+    'tradition by introducing the TATSUKI mechanism as the institutional context within which '
+    'candidate strategies evolve, and extends it with genetic-algorithm-based adversarial testing '
+    'and empirical calibration against large-scale pledge-fulfillment databases.'
 )
 
 # Figure 6: Positioning
@@ -897,17 +920,19 @@ doc.add_heading('6. Discussion', level=1)
 
 doc.add_heading('6.1 Contributions and Implications', level=2)
 add_text_para(
-    'Our results demonstrate that TATSUKI can significantly improve electoral accountability '
-    'compared to standard elections. The mechanism works through two channels: a direct incentive '
-    'effect (candidates adjust behavior to maintain high trust coefficients) and an evolutionary '
-    'selection effect (the political system selects for candidates with genuine fulfillment capacity). '
-    'The combination of these channels produces sustained accountability improvements over time.'
+    'The simulation results demonstrate that TATSUKI can substantially improve electoral '
+    'accountability compared to standard elections. The mechanism operates through two '
+    'complementary channels: a direct incentive effect, whereby candidates adjust behavior to '
+    'maintain high trust coefficients, and an evolutionary selection effect, whereby the political '
+    'system differentially retains candidates with genuine fulfillment capacity. The combination of '
+    'these channels produces sustained accountability improvements over multiple electoral cycles.'
 )
 add_text_para(
-    'The analysis of the influence function family reveals a principled basis for institutional '
-    'design. Concave and sigmoid functions offer the best balance: they provide strong incentives '
-    'for moderate performers to improve (steep gradient at low S) while limiting the marginal gain '
-    'from gaming near the top, thus discouraging costly but marginally rewarding manipulation.'
+    'The analysis of the influence function family reveals a principled, empirically grounded basis '
+    'for institutional design. Concave and sigmoid functions provide the most favorable balance: '
+    'they generate strong incentives for moderate performers to improve (steep gradient at low S) '
+    'while limiting the marginal gain from gaming near the top, thereby discouraging costly but '
+    'marginally rewarding manipulation attempts.'
 )
 add_text_para(
     'The candidate-centric trust coefficient formulation addresses a major normative concern. By '
@@ -917,16 +942,41 @@ add_text_para(
     'analogous to credit ratings in financial markets.'
 )
 
-doc.add_heading('6.2 Methodological Contribution', level=2)
+doc.add_heading('6.2 Methodological Contribution to Computational Social Science', level=2)
 add_text_para(
-    'From a computational social science perspective, this study demonstrates the value of combining '
-    'agent-based modeling with empirical calibration for evaluating institutional designs. The ODD '
-    'protocol ensures reproducibility and transparency, while the integration of real-world pledge '
-    'fulfillment data (Polimeter and Thomson et al. databases) grounds the simulation in empirically '
-    'observed behavioral patterns. The adversarial robustness analysis using genetic algorithms '
-    'represents a novel application of evolutionary computation to institutional stress-testing, '
-    'providing a systematic methodology for evaluating the manipulation resistance of proposed '
-    'democratic mechanisms.'
+    'Beyond its substantive findings, this study contributes a replicable computational methodology '
+    'for evaluating proposed institutional designs\u2014a growing need in computational social '
+    'science. The approach integrates three computational components that, taken together, address '
+    'the key challenges of institutional evaluation.'
+)
+add_text_para(
+    'First, the ODD-compliant agent-based model provides a transparent, reproducible platform for '
+    'simulating complex multi-agent dynamics that resist closed-form analysis. By specifying agent '
+    'heterogeneity (sincere, populist, and strategic-deceptive types), evolutionary selection, and '
+    'feedback loops through trust coefficients, the ABM captures emergent phenomena\u2014such as '
+    'the gradual displacement of populist candidates\u2014that would be difficult to predict from '
+    'first principles alone.'
+)
+add_text_para(
+    'Second, the empirical calibration pipeline demonstrates how large-scale observational '
+    'datasets\u2014here, 1,050 coded promises from the Polimeter project and cross-national '
+    'benchmarks from more than 20,000 pledges\u2014can be integrated into simulation models to '
+    'constrain parameter spaces and validate behavioral assumptions. The close convergence between '
+    'the Polimeter mean (0.596) and Thomson et al.\'s cross-national benchmark for minority '
+    'governments (0.61) provides external validation of the calibration approach.'
+)
+add_text_para(
+    'Third, the adversarial robustness analysis using genetic algorithms represents, to our '
+    'knowledge, a novel application of evolutionary computation to institutional stress-testing. '
+    'Rather than relying on researcher intuition to identify plausible manipulation strategies, the '
+    'GA systematically searches the strategy space, providing a more rigorous basis for evaluating '
+    'manipulation resistance. This methodology is generalizable to other mechanism design problems '
+    'in political science, public economics, and organizational governance.'
+)
+add_text_para(
+    'Taken together, these components offer a template for computational evaluation of institutional '
+    'proposals that balances theoretical rigor with empirical grounding\u2014a combination that '
+    'has been identified as a priority for computational social science [30].'
 )
 
 doc.add_heading('6.3 Relationship to One-Person-One-Vote', level=2)
@@ -942,21 +992,23 @@ add_text_para(
 
 doc.add_heading('6.4 Limitations', level=2)
 add_text_para(
-    'Several limitations warrant acknowledgment. First, our simulation results depend on '
-    'stylized assumptions about candidate types and voter behavior. Real-world electoral dynamics '
-    'involve richer strategic interactions, coalition politics, and institutional constraints. '
-    'Second, the effectiveness of the evaluation mechanism assumes that pledge fulfillment can be '
-    'reliably and impartially assessed. While the empirical pledge fulfillment literature '
-    '[10] supports feasibility, the implementation of an evaluation body raises '
-    'questions of institutional design and political independence.'
+    'Several limitations warrant acknowledgment. First, the simulation relies on stylized '
+    'assumptions about candidate types and voter behavior. Real-world electoral dynamics involve '
+    'richer strategic interactions, coalition politics, and institutional constraints that our '
+    'three-type model does not fully capture. Second, the mechanism\'s effectiveness presupposes '
+    'that pledge fulfillment can be reliably and impartially assessed. Although the empirical '
+    'pledge-fulfillment literature [10] supports the feasibility of such evaluation, the '
+    'implementation of an independent evaluation body raises substantive questions of institutional '
+    'design, political independence, and public legitimacy.'
 )
 add_text_para(
     'Third, we have not formally characterized the full strategy-proofness properties of TATSUKI '
-    'in the spirit of Gibbard\u2013Satterthwaite [18, 19]. The adversarial GA analysis provides '
-    'empirical evidence of robustness, but a complete impossibility or possibility result for the '
-    'TATSUKI mechanism class remains an important open question. Fourth, the interaction between '
-    'TATSUKI and existing institutional features (federalism, coalition governance, term limits) has '
-    'not been modeled and likely introduces additional complexity.'
+    'in the spirit of the Gibbard\u2013Satterthwaite framework [18, 19]. While the adversarial '
+    'genetic-algorithm analysis provides computational evidence of robustness, a complete '
+    'impossibility or possibility result for the TATSUKI mechanism class remains an important open '
+    'question for future theoretical work. Fourth, the interaction between TATSUKI and existing '
+    'institutional features\u2014federalism, coalition governance, term limits\u2014has not been '
+    'modeled and likely introduces additional complexity that warrants dedicated investigation.'
 )
 
 doc.add_heading('6.5 The Asymmetry of Electoral Participation Encouragement', level=2)
@@ -1013,19 +1065,27 @@ add_text_para(
 # ══════════════════════════════════════════════
 doc.add_heading('7. Conclusion', level=1)
 add_text_para(
-    'We have introduced Trust-Adjusted Transparent Scoring with Unified Knowledge Integration '
+    'This paper has introduced Trust-Adjusted Transparent Scoring with Unified Knowledge Integration '
     '(TATSUKI), a novel electoral mechanism that institutionalizes retrospective accountability by '
     'linking candidate trust coefficients to measured policy fulfillment. Through an ODD-compliant '
-    'agent-based model calibrated with empirical pledge fulfillment data from the Polimeter project '
-    'and cross-national benchmarks from Thomson et al. [10], we demonstrated that TATSUKI raises '
-    'accountability levels, selects for sincere candidates, and exhibits robustness to adversarial '
-    'exploitation. Counterfactual analysis using real-world data from three Canadian parliamentary '
-    'terms confirms that TATSUKI produces stable, interpretable trust trajectories consistent with '
-    'observed fulfillment patterns. The mechanism is parameterized by a family of influence functions, '
-    'with concave and sigmoid specifications offering the best trade-off between incentive strength '
-    'and manipulation resistance. By framing the trust adjustment at the candidate level rather than '
-    'the voter level, TATSUKI maintains compatibility with the one-person-one-vote principle while '
-    'introducing a principled mechanism for performance-based electoral influence.'
+    'agent-based model calibrated against empirical pledge-fulfillment data from the Polimeter '
+    'project and cross-national benchmarks from Thomson et al. [10], we have demonstrated that '
+    'TATSUKI raises accountability levels, selects for sincere candidates, and exhibits robustness '
+    'to adversarial exploitation strategies discovered through genetic-algorithm search. '
+    'Counterfactual analysis using data from three Canadian parliamentary terms confirms that '
+    'TATSUKI produces stable, interpretable trust trajectories consistent with observed fulfillment '
+    'patterns. The mechanism is parameterized by a family of influence functions, with concave and '
+    'sigmoid specifications offering the most favorable trade-off between incentive strength and '
+    'manipulation resistance.'
+)
+add_text_para(
+    'Beyond the substantive contribution, the computational methodology presented here\u2014combining '
+    'agent-based simulation, empirical calibration against large-scale observational data, and '
+    'algorithmic adversarial testing\u2014offers a replicable template for evaluating institutional '
+    'design proposals in computational social science. By framing the trust adjustment at the '
+    'candidate level rather than the voter level, TATSUKI maintains compatibility with the '
+    'one-person-one-vote principle while introducing a principled, computationally grounded mechanism '
+    'for performance-based electoral influence.'
 )
 
 # ══════════════════════════════════════════════
